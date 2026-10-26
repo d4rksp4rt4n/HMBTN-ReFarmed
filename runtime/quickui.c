@@ -5,9 +5,19 @@
 /* The message/help window (the box at the bottom of the rucksack, the toolbox, the bookshelf,
  * ...) grows open and shrinks closed over 6 + steps game ticks, counted in the word at
  * `counter`; once it reaches 6 + steps the window is drawn whole (or gone) and the caller
- * goes on. Starting it there makes the window open and close at once. */
-void quick_window(uint32_t counter, uint32_t steps) {
-    if (!g_cfg.quickui) return;
+ * goes on. Moving the counter there makes the window open and close at once, but only from
+ * its second tick: callers that see the window done on the very first one skip a step of
+ * their own (closing the help box to show an item's description then left the description
+ * stuck, with no way to scroll or close it).
+ * The item description (Triangle in the rucksack / toolbox) also opens in two stages: its
+ * first stage (the call returning to 80022A84) runs the animation while the text is made
+ * ready and, if the window is not open yet, hands over to the second (80022B20), which marks
+ * the message window as open (8006C904 = 4) once the animation ends. That first stage is
+ * left alone, so the second one always runs; it opens the window at once. */
+#define DESCRIPTION_OPENING 0x80022A84u
+
+void quick_window(uint32_t ra, uint32_t counter, uint32_t steps) {
+    if (!g_cfg.quickui || ra == DESCRIPTION_OPENING || MEM_R32(counter) == 0) return;
     int32_t end = (int32_t)steps + 6;
     if ((int32_t)MEM_R32(counter) < end) MEM_W32(counter, (uint32_t)end);
 }

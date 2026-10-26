@@ -216,7 +216,7 @@ uint32_t memcard_slot_menu(uint32_t result);
 void memcard_slot_visit(void);
 void memcard_text(uint32_t text);
 /* quickui.c: skip the waits of menus and windows */
-void quick_window(uint32_t counter, uint32_t steps);
+void quick_window(uint32_t ra, uint32_t counter, uint32_t steps);
 uint32_t quick_fade(uint32_t ticks);
 void quick_text(uint32_t text);
 void trace_func(CPU *c, uint32_t addr);

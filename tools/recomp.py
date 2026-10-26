@@ -432,8 +432,9 @@ ENTRY_HOOKS[0x800D7144] = 'HELD_BEGIN();'
 TAG_STORES_IN = {0x80016280, 0x800165D8, 0x80016C08, 0x800D7144, *HUD_BUILDERS}
 # 80022794 animates the message/help window (6 steps of width, then N of height, one per
 # game tick; counter pointer and N in its 6th/7th arguments at sp+24/28): quick_window
-# (runtime/quickui.c) can move the counter to the end so it opens or closes at once.
-ENTRY_HOOKS[0x80022794] = 'quick_window(MEM_R32(R[29] + 24u), MEM_R32(R[29] + 28u));'
+# (runtime/quickui.c) can move the counter to the end so it opens or closes at once. The
+# caller (ra) tells the one window that must not be hurried (see quick_window).
+ENTRY_HOOKS[0x80022794] = 'quick_window(R[31], MEM_R32(R[29] + 24u), MEM_R32(R[29] + 28u));'
 # The screen fades start with their length in game ticks in a0: 800132B8 from black,
 # 800132F0 to black, 80013328 to black for doors (gp+32 = kind, gp+344/346 = tick/length).
 # The music fades in/out with them (8001FE00/8001FE34, same length in a0) and the game waits
