@@ -132,6 +132,7 @@ typedef struct {
     uint32_t sh, xm, ym;            /* log2 row stride, coordinate wrap masks */
     int32_t  n;                     /* scale (1 = native VRAM) */
     uint8_t  dcol[4096];            /* dither column for x: (x / n) & 3 */
+    uint8_t *bg;                    /* upscaled copy: 1 = left by a fill, nothing opaque drawn on it since */
 } Target;
 static Target TN = { S.vram, 10, 1023, 511, 1, { 0 } };
 static Target TH;                   /* upscaled copy; buf == NULL when off */
@@ -476,10 +477,13 @@ static inline uint32_t blend_px(uint32_t bk, uint32_t fr, int mode)
  * written pixel (texel bit 15, or 0 for untextured), blend = -1 or mode. */
 static inline void plot(const Target *t, uint32_t x, uint32_t y, uint32_t rgb, uint32_t bit15, int blend)
 {
-    uint16_t *p = &t->buf[((y & t->ym) << t->sh) | (x & t->xm)];
+    uint32_t i = ((y & t->ym) << t->sh) | (x & t->xm);
+    uint16_t *p = &t->buf[i];
     uint32_t bk = *p;
     if (bk & S.mask_check)
         return;
+    if (t->bg && blend < 0)         /* see-through pixels leave the background showing */
+        t->bg[i] = 0;
     if (blend >= 0)
         rgb = blend_px(bk, rgb, blend);
     *p = (uint16_t)(rgb | bit15 | S.mask_set);
@@ -514,8 +518,11 @@ static inline void plot2(uint32_t x, uint32_t y, uint32_t rgb, uint32_t bit15, i
             uint16_t v = (uint16_t)(rgb | bit15 | S.mask_set);
             for (j = 0; j < n; j++) {
                 uint16_t *p = &TH.buf[((hy + j) << TH.sh) + hx];
-                for (i = 0; i < n; i++)
+                uint8_t *bg = &TH.bg[((hy + j) << TH.sh) + hx];
+                for (i = 0; i < n; i++) {
                     p[i] = v;
+                    bg[i] = 0;
+                }
             }
             return;
         }
@@ -614,49 +621,17 @@ static const PgxpWord *interp_tag(const PgxpWord *t, PgxpWord *tmp)
     return tmp;
 }
 
-/* PGXP welding: models that meet (a door in its wall, a wall on the ground, a nameplate on the
- * dog house) are projected separately, and their meeting corners, the same pixel on the
- * console's grid, can be a fraction of a pixel apart as precise positions: in the upscaled
- * picture the background showed through a hairline crack between them. So within a frame, a
- * precise vertex at the same whole-pixel position and nearly the same depth (within 1/256: the
- * same point of the world, apart from the GTE's rounding) as an earlier one takes that one's
- * precise position; vertices of unrelated things that merely share a pixel keep their own.
- * welds: per whole-pixel position (the vertex word), stamped with the frame (weld_gen, counted
- * up at each VBlank and each redraw). */
-static struct { uint32_t value, gen; float x, y, z; } welds[1 << 14];
-static uint32_t weld_gen = 1;
-
-static void weld(uint32_t value, float *x, float *y, float z)
-{
-    uint32_t h = (value * 2654435761u) >> 18, k;
-    for (k = 0; k < 4; k++, h = (h + 1) & ((1u << 14) - 1)) {
-        if (welds[h].gen != weld_gen) {
-            welds[h].value = value;
-            welds[h].gen = weld_gen;
-            welds[h].x = *x;
-            welds[h].y = *y;
-            welds[h].z = z;
-            return;
-        }
-        if (welds[h].value == value) {
-            if (fabsf(welds[h].z - z) <= 1.0f + welds[h].z / 256.0f) {
-                *x = welds[h].x;
-                *y = welds[h].y;
-            }
-            return;
-        }
-    }
-}
-
 /* CPU->VRAM data: the n x n block for native pixel (x, y), honouring the mask bit. */
 static void up_block(uint32_t x, uint32_t y, uint16_t v)
 {
     uint32_t n = (uint32_t)TH.n, i, j;
     for (j = 0; j < n; j++) {
-        uint16_t *p = &TH.buf[(((y & 511u) * n + j) << TH.sh) + (x & 1023u) * n];
+        uint32_t k = (((y & 511u) * n + j) << TH.sh) + (x & 1023u) * n;
         for (i = 0; i < n; i++)
-            if (!(p[i] & S.mask_check))
-                p[i] = v;
+            if (!(TH.buf[k + i] & S.mask_check)) {
+                TH.buf[k + i] = v;
+                TH.bg[k + i] = 0;
+            }
     }
 }
 
@@ -671,6 +646,7 @@ static void up_refresh(void)
                 for (i = 0; i < n; i++)
                     p[x * n + i] = S.vram[(y << 10) | x];
         }
+    memset(TH.bg, 0, (size_t)1 << (2 * TH.sh - 1));
 }
 
 /* 480i with drawing to the displayed field disabled: lines of the field
@@ -816,6 +792,8 @@ static void draw_span(const Target *t, const PolyCtx *c, int32_t yi, int32_t x_s
     } else if (c->blend < 0 && !S.mask_check) {
         uint16_t *p = &t->buf[(y & t->ym) << t->sh];
         uint16_t val = (uint16_t)(c->flat_rgb15 | S.mask_set);
+        if (t->bg)
+            memset(&t->bg[((y & t->ym) << t->sh) + (uint32_t)x], 0, (size_t)w);
         for (; w > 0; w--, x++)
             p[x] = val;
     } else {
@@ -1144,7 +1122,6 @@ static void cmd_polygon(const uint32_t *p)
         for (i = 0; i < nv; i++) {
             float fx, fy, fw;
             if (g_pgxp && pgxp_lookup(cmd_addr[xyi[i]], p[xyi[i]], &fx, &fy, &fw)) {
-                weld(p[xyi[i]], &fx, &fy, fw);
                 if (replaying)
                     interp_point(&fx, &fy, &fw);
                 v[i].x = (int32_t)lrintf((fx + (float)S.offs_x) * (float)TH.n);
@@ -1557,9 +1534,13 @@ static void cmd_fill(const uint32_t *p)
             int32_t n = TH.n, i, j;
             for (j = 0; j < n; j++) {
                 uint16_t *hrow = &TH.buf[(uint32_t)(dy * n + j) << TH.sh];
+                uint8_t *brow = &TH.bg[(uint32_t)(dy * n + j) << TH.sh];
+                int32_t k = w < 1024 - x0 ? w : 1024 - x0;
                 for (x = 0; x < w; x++)
                     for (i = 0; i < n; i++)
                         hrow[((x0 + x) & 1023) * n + i] = val;
+                memset(&brow[x0 * n], 1, (size_t)(k * n));
+                memset(brow, 1, (size_t)((w - k) * n));     /* the part past x 1023 */
             }
         }
     }
@@ -1601,21 +1582,27 @@ static void cmd_copy(const uint32_t *p)
     if (TH.buf) {
         int32_t n = TH.n, W = 1024 * n, H = 512 * n, k;
         uint16_t htmp[128 * 4];
+        uint8_t btmp[128 * 4];
         for (y = 0; y < h * n; y++) {
             int32_t ys = sy * n + y, yd = dy * n + y;
             const uint16_t *srow = &TH.buf[(uint32_t)(ys % H) << TH.sh];
             uint16_t *drow = &TH.buf[(uint32_t)(yd % H) << TH.sh];
+            const uint8_t *sbg = &TH.bg[(uint32_t)(ys % H) << TH.sh];
+            uint8_t *dbg = &TH.bg[(uint32_t)(yd % H) << TH.sh];
             for (x = 0; x < w * n; x += 128 * n) {
                 k = w * n - x < 128 * n ? w * n - x : 128 * n;
                 for (i = 0; i < k; i++) {
                     int32_t xs = sx * n + x + i;
                     htmp[i] = srow[xs >= W ? xs - W : xs];
+                    btmp[i] = sbg[xs >= W ? xs - W : xs];
                 }
                 for (i = 0; i < k; i++) {
                     int32_t xd = dx * n + x + i;
                     uint16_t *dp = &drow[xd >= W ? xd - W : xd];
-                    if (!(*dp & S.mask_check))
+                    if (!(*dp & S.mask_check)) {
                         *dp = (uint16_t)(htmp[i] | S.mask_set);
+                        dbg[xd >= W ? xd - W : xd] = btmp[i];
+                    }
                 }
             }
         }
@@ -1813,6 +1800,7 @@ typedef struct {
     int pgxp, persp, depth, scene3d, log;
     Target th;
     const uint16_t *src;
+    const uint8_t *src_bg;
     uint32_t y0, y1;
     int32_t band[INTERP_WORKERS + 1];   /* worker k draws VRAM rows band[k] .. band[k + 1] */
 } InterpJob;
@@ -1831,7 +1819,6 @@ void GPU_REPLAY_RUN(const InterpJob *j, int32_t y0, int32_t y1)
     int i, len;
     if (!dither_lut_ready)
         build_dither_lut();
-    weld_gen++;
     band_y0 = y0;
     band_y1 = y1;
     for (y = j->y0; y < j->y1; y++) {
@@ -1839,6 +1826,7 @@ void GPU_REPLAY_RUN(const InterpJob *j, int32_t y0, int32_t y1)
             continue;
         uint32_t row = (y % (512u * (uint32_t)j->th.n)) << j->th.sh;
         memcpy(&j->th.buf[row], &j->src[row], (size_t)1024 * (size_t)j->th.n * sizeof(uint16_t));
+        memcpy(&j->th.bg[row], &j->src_bg[row], (size_t)1024 * (size_t)j->th.n);
     }
     clock_t t1 = clock();
     memcpy(S.vram, j->vram, sizeof S.vram);
@@ -1893,6 +1881,7 @@ static FrameRec *frec;              /* [2] */
 static Camera cam_cur;
 static InterpJob *job;
 static uint16_t *interp_buf;        /* the in-between picture: a scratch copy of the upscaled VRAM */
+static uint8_t *interp_bg;          /* and of its fill marks (Target.bg) */
 static uint32_t job_gen;            /* the next frame the in-between picture is made for */
 static int since_flip, last_y = -1, disp_y[2] = { -1, -1 }, ilog;
 
@@ -1955,7 +1944,8 @@ void gpu_interp_enable(void)
     frec = calloc(2, sizeof *frec);
     job = malloc(sizeof *job);
     interp_buf = malloc(((size_t)1 << (2 * TH.sh - 1)) * sizeof(uint16_t));
-    g_interp = frec && job && interp_buf;
+    interp_bg = malloc((size_t)1 << (2 * TH.sh - 1));
+    g_interp = frec && job && interp_buf && interp_bg;
     ilog = getenv("HMBTN_INTERP_LOG") != NULL;
 }
 
@@ -1985,6 +1975,7 @@ int gpu_render_interp(uint32_t *out, int *w, int *h)
     GpuDisplay d;
     uint32_t disp_saved;
     uint16_t *hb;
+    uint8_t *hbg;
     int b;
 
     if (!frec)
@@ -2000,12 +1991,15 @@ int gpu_render_interp(uint32_t *out, int *w, int *h)
     if (ilog && since_flip > 2)
         fprintf(stderr, "interp: held\n");
     hb = TH.buf;
+    hbg = TH.bg;
     TH.buf = interp_buf;
+    TH.bg = interp_bg;
     disp_saved = S.disp_y;              /* the next frame's buffer, from the in-between picture */
     S.disp_y = (uint32_t)disp_y[!b];
     gpu_render_display(out, w, h);
     S.disp_y = disp_saved;
     TH.buf = hb;
+    TH.bg = hbg;
     return 1;
 }
 
@@ -2074,7 +2068,9 @@ int gpu_interp_prepare(void)
     job->log = ilog;
     job->th = TH;
     job->th.buf = interp_buf;
+    job->th.bg = interp_bg;
     job->src = TH.buf;
+    job->src_bg = TH.bg;
     job->y0 = (uint32_t)disp_y[!b] * (uint32_t)TH.n;
     job->y1 = (uint32_t)(disp_y[!b] + d.height) * (uint32_t)TH.n;
     for (k = 1; k < INTERP_WORKERS; k++)
@@ -2320,7 +2316,6 @@ uint32_t gpu_read_status(void)
 
 void gpu_vblank(void)
 {
-    weld_gen++;
     hud_after = 0;
     anchor_gen++;
     if (S.disp_mode & 0x20u)
@@ -2385,22 +2380,23 @@ void gpu_get_display(GpuDisplay *d)
     d->hres_mode = (int)(((S.disp_mode >> 6) & 1u) | ((S.disp_mode & 3u) << 1));
 }
 
-/* A pixel of the upscaled picture at (x, y) of the display area */
-static uint16_t th_pixel(const GpuDisplay *d, int n, int x, int y)
+/* Was the pixel of the upscaled picture at (x, y) of the display area left by a fill (nothing
+ * opaque drawn on it since)? */
+static int th_bg(const GpuDisplay *d, int n, int x, int y)
 {
     uint32_t hx = (uint32_t)(d->vram_x * n + x) % (1024u * (uint32_t)n);
     uint32_t hy = (uint32_t)(d->vram_y * n + y) % (512u * (uint32_t)n);
-    return TH.buf[(hy << TH.sh) + hx];
+    return TH.bg[(hy << TH.sh) + hx];
 }
 
-/* Is the black pixel (x, y) in a hairline across (dx, dy): fewer than two native pixels of black
- * (2n - 1) between drawn ones, inside the picture? */
+/* Is the undrawn pixel (x, y) in a hairline across (dx, dy): fewer than two native pixels of
+ * undrawn ones (2n - 1) between drawn ones, inside the picture? */
 static int hairline(const GpuDisplay *d, int n, int w, int h, int x, int y, int dx, int dy)
 {
     int a, b, m = 2 * n - 1;
-    for (a = 1; a <= m && x - a * dx >= 0 && y - a * dy >= 0 && !th_pixel(d, n, x - a * dx, y - a * dy); a++)
+    for (a = 1; a <= m && x - a * dx >= 0 && y - a * dy >= 0 && th_bg(d, n, x - a * dx, y - a * dy); a++)
         ;
-    for (b = 1; b <= m && x + b * dx < w && y + b * dy < h && !th_pixel(d, n, x + b * dx, y + b * dy); b++)
+    for (b = 1; b <= m && x + b * dx < w && y + b * dy < h && th_bg(d, n, x + b * dx, y + b * dy); b++)
         ;
     return a + b - 1 <= m && x - a * dx >= 0 && y - a * dy >= 0 && x + b * dx < w && y + b * dy < h;
 }
@@ -2425,19 +2421,20 @@ void gpu_render_display(uint32_t *out, int *w, int *h)
         int W = 1024 * n;
         for (y = 0; y < *h; y++) {
             const uint16_t *row = &TH.buf[(uint32_t)((d.vram_y * n + y) % (512 * n)) << TH.sh];
+            const uint8_t *brow = &TH.bg[(uint32_t)((d.vram_y * n + y) % (512 * n)) << TH.sh];
             uint32_t *o = out + (size_t)y * (size_t)*w;
             for (x = 0; x < *w; x++) {
                 int hx = d.vram_x * n + x;
                 uint32_t p = row[hx >= W ? hx - W : hx];
                 uint32_t r, g, b;
-                if (!p && g_pgxp) {
-                    /* a hairline of black where the native picture has something drawn: a crack
-                     * between polygons that PGXP's precise positions left open (welding closes
-                     * those between meeting corners; a corner partway along another polygon's
-                     * edge still leaves one): shown with the native pixel */
-                    uint16_t nat = S.vram[(((uint32_t)(d.vram_y + y / n) & 511u) << 10) | ((uint32_t)(d.vram_x + x / n) & 1023u)];
-                    if (nat && (hairline(&d, n, *w, *h, x, y, 1, 0) || hairline(&d, n, *w, *h, x, y, 0, 1)))
-                        p = nat;
+                if (g_pgxp && brow[hx >= W ? hx - W : hx] &&
+                    (hairline(&d, n, *w, *h, x, y, 1, 0) || hairline(&d, n, *w, *h, x, y, 0, 1))) {
+                    /* a hairline of background between drawn pixels: a crack between polygons
+                     * that PGXP's precise positions left open (separately projected models whose
+                     * corners meet on the console's grid, or a corner partway along another
+                     * polygon's edge), shown with the native pixel (the background too where
+                     * the gap is real). Pixels drawn black are not touched. */
+                    p = S.vram[(((uint32_t)(d.vram_y + y / n) & 511u) << 10) | ((uint32_t)(d.vram_x + x / n) & 1023u)];
                 }
                 r = p & 31u;
                 g = (p >> 5) & 31u;
@@ -2507,15 +2504,23 @@ void gpu_set_upscale(int n)
 {
     uint32_t sh, x;
     free(TH.buf);
+    free(TH.bg);
     TH.buf = NULL;
+    TH.bg = NULL;
     if (n < 2)
         return;
     if (n > 4)
         n = 4;
     sh = n == 2 ? 11u : 12u;   /* power-of-two row stride: 2048 or 4096 halfwords */
     TH.buf = (uint16_t *)calloc((size_t)1 << (2 * sh - 1), sizeof(uint16_t));
-    if (!TH.buf)
+    TH.bg = (uint8_t *)calloc((size_t)1 << (2 * sh - 1), 1);
+    if (!TH.buf || !TH.bg) {
+        free(TH.buf);
+        free(TH.bg);
+        TH.buf = NULL;
+        TH.bg = NULL;
         return;
+    }
     TH.sh = sh;
     TH.xm = (1u << sh) - 1u;
     TH.ym = (1u << (sh - 1u)) - 1u;

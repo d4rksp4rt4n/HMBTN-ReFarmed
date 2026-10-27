@@ -1243,8 +1243,7 @@ static void write_bmp(const char *path, const uint32_t *argb, int w, int h)
 }
 
 /* ---------------------------------------------------------------------- */
-/* PGXP cracks: corners that meet on the console's grid meet in the upscaled copy (welding), and a
- * black hairline left between drawn pixels is shown with the native pixel */
+/* PGXP cracks: a hairline of background left between drawn pixels is shown with the native pixel */
 
 /* flat quad x0..x1, y0..y1 (whole pixels) whose corners are tagged at precise x px0 / px1, depth z */
 static void pgxp_quad(uint32_t addr, int x0, int y0, int x1, int y1, float px0, float px1, float z, uint32_t rgb)
@@ -1267,31 +1266,29 @@ static void test_pgxp_cracks(void)
     screen_320();
     gpu_set_upscale(4);
     g_pgxp = 1;
-    gpu_vblank();                               /* a new frame: welds start over */
-    /* red x 20..40 and green from x 40, whose corners at 40 are precise 40.0 and 41.95: welded, so
-     * no 8-pixel crack at target x 160..167 (too wide for the hairline fill) */
-    pgxp_quad(0x5000, 20, 10, 40, 50, 20.0f, 40.0f, 100.0f, 0x0000FF);
-    pgxp_quad(0x5010, 40, 10, 60, 50, 41.95f, 60.0f, 100.0f, 0x00FF00);
-    /* the same at rows 110..150, but the green quad twice as deep: not the same point, not welded */
-    pgxp_quad(0x5060, 20, 110, 40, 150, 20.0f, 40.0f, 100.0f, 0x0000FF);
-    pgxp_quad(0x5070, 40, 110, 60, 150, 41.95f, 60.0f, 200.0f, 0x00FF00);
-    /* blue x 20..40, yellow from x 40 with corners at other rows (a T-junction, no weld) at
-     * precise 40.5: a 2-pixel hairline at target x 160..161, shown with the native pixel */
+    gp0(0x02000000);                            /* the game clears the screen with a fill */
+    gp0(0);
+    gp0((240u << 16) | 320u);
+    /* blue x 20..40, yellow from x 40 with corners at other rows (a T-junction) at precise 40.5:
+     * a 2-pixel hairline at target x 160..161, shown with the native pixel */
     pgxp_quad(0x5020, 20, 60, 40, 100, 20.0f, 40.0f, 100.0f, 0xFF0000);
     pgxp_quad(0x5030, 40, 70, 60, 90, 40.5f, 60.0f, 100.0f, 0x00FFFF);
     /* white x 100..120 and 121..140: a real 1-pixel gap, as narrow as a hairline but black in the
      * native picture too */
     pgxp_quad(0x5040, 100, 10, 120, 50, 100.0f, 120.0f, 100.0f, 0xFFFFFF);
     pgxp_quad(0x5050, 121, 10, 140, 50, 121.0f, 140.0f, 100.0f, 0xFFFFFF);
+    /* white x 20..40, black x 40..41 and white from 41 at rows 110..150, all half a pixel right
+     * (like a sprite eye): the black is drawn at target x 162..165, native x 41 is white */
+    pgxp_quad(0x5060, 20, 110, 40, 150, 20.5f, 40.5f, 100.0f, 0xFFFFFF);
+    pgxp_quad(0x5070, 40, 110, 41, 150, 40.5f, 41.5f, 100.0f, 0x000000);
+    pgxp_quad(0x5080, 41, 110, 60, 150, 41.5f, 60.5f, 100.0f, 0xFFFFFF);
     gpu_render_display(out, &w, &h);
-    CHECK(out[120 * w + 160] == argb15(px(40, 30)) && out[120 * w + 167] == argb15(px(40, 30)) &&
-          (px(40, 30) & 0x3E0u), "pgxp: corners meeting on the grid welded (no crack)");
-    CHECK(out[520 * w + 160] == 0xFF000000u && out[520 * w + 167] == 0xFF000000u,
-          "pgxp: a vertex at another depth on the same pixel is not welded");
     CHECK(out[320 * w + 160] == argb15(px(40, 80)) && out[320 * w + 161] == argb15(px(40, 80)) &&
           (px(40, 80) & 0x3FFu) == 0x3FFu, "pgxp: T-junction hairline shown with the native pixel");
     CHECK(px(120, 30) == 0 && out[120 * w + 480] == 0xFF000000u && out[120 * w + 483] == 0xFF000000u,
           "pgxp: a real gap stays black");
+    CHECK(px(41, 130) == 0x7FFFu && out[520 * w + 164] == 0xFF000000u && out[520 * w + 165] == 0xFF000000u,
+          "pgxp: pixels drawn black are not filled");
     g_pgxp = 0;
     gpu_set_upscale(1);
     free(out);

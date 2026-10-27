@@ -56,20 +56,26 @@ word in between, the shadow value no longer matches and the vertex is drawn as u
 dog house) are projected separately. Their meeting corners land on the same whole pixel, so the
 console shows no gap, but their precise positions can be a fraction of a pixel apart, and in
 the upscaled picture the background showed through as black hairlines, flashing as the camera
-moved (more with widescreen, whose squeeze moves every position). Two measures close them:
+moved (more with widescreen, whose squeeze moves every position). The same happens at a corner
+partway along another polygon's edge (a T-junction). The upscaled copy keeps a mark per pixel:
+set where the game's screen clear (a fill) writes it, cleared where anything opaque is drawn
+(see-through pixels, like the see-through black quad the game draws by the farm house door,
+keep it). When the picture is shown, a marked pixel in a hairline of marked pixels (narrower than
+two native pixels, between unmarked ones across or down) is shown with the native pixel. Where
+the gap is real the native pixel is the background too. Pixels drawn black (the player's
+eyes, dark texels) are not marked, so they are never filled; an earlier version that filled
+black pixels instead painted over them. Marking costs about 0.2 ms per frame at upscale 3.
 
-- **Welding.** Within a frame, a precise vertex on the same whole pixel and at nearly the same
-  depth (within 1/256: the same point of the world, apart from the GTE's rounding) as an earlier
-  one takes that one's precise position, so corners that meet on the console's grid meet
-  exactly. Vertices of unrelated things that merely share a pixel keep their own positions.
-- **Hairline fill.** A corner partway along another polygon's edge (a T-junction) has no
-  partner to weld to. When the picture is shown, a black pixel in a hairline (narrower than two
-  native pixels, between drawn pixels across or down) where the native picture has something
-  drawn is shown with that native pixel. A real gap is black at native size too and
-  stays black; the check only runs for black pixels.
+Welding meeting corners (a vertex on the same whole pixel and at nearly the same depth as an
+earlier one takes that one's precise position) was tried first: it closed few cracks the fill
+doesn't, but it also caught corners of other models near the same spot, and as those changed
+from frame to frame, whole textures (the house door, window panes) shifted back and forth.
+DuckStation's default, precise positions from the GTE's rounded IR1/IR2/SZ3 instead of the
+accumulators, leaves as many cracks as ours.
 
-In a replay walking past the farm house, these removed the lines at the door, the window and
-the nameplate; neither changes anything with PGXP off.
+In a replay walking past the farm house, the fill removed the lines at the door, the window
+and the nameplate; it changes nothing with PGXP off. In town, what stays black is mostly the
+game's own dark line between window shutters and windows (drawn, and black at native size too).
 
 ## 2D objects on a 3D field
 
