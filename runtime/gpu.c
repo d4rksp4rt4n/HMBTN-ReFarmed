@@ -614,6 +614,40 @@ static const PgxpWord *interp_tag(const PgxpWord *t, PgxpWord *tmp)
     return tmp;
 }
 
+/* PGXP welding: models that meet (a door in its wall, a wall on the ground, a nameplate on the
+ * dog house) are projected separately, and their meeting corners, the same pixel on the
+ * console's grid, can be a fraction of a pixel apart as precise positions: in the upscaled
+ * picture the background showed through a hairline crack between them. So within a frame, a
+ * precise vertex at the same whole-pixel position and nearly the same depth (within 1/256: the
+ * same point of the world, apart from the GTE's rounding) as an earlier one takes that one's
+ * precise position; vertices of unrelated things that merely share a pixel keep their own.
+ * welds: per whole-pixel position (the vertex word), stamped with the frame (weld_gen, counted
+ * up at each VBlank and each redraw). */
+static struct { uint32_t value, gen; float x, y, z; } welds[1 << 14];
+static uint32_t weld_gen = 1;
+
+static void weld(uint32_t value, float *x, float *y, float z)
+{
+    uint32_t h = (value * 2654435761u) >> 18, k;
+    for (k = 0; k < 4; k++, h = (h + 1) & ((1u << 14) - 1)) {
+        if (welds[h].gen != weld_gen) {
+            welds[h].value = value;
+            welds[h].gen = weld_gen;
+            welds[h].x = *x;
+            welds[h].y = *y;
+            welds[h].z = z;
+            return;
+        }
+        if (welds[h].value == value) {
+            if (fabsf(welds[h].z - z) <= 1.0f + welds[h].z / 256.0f) {
+                *x = welds[h].x;
+                *y = welds[h].y;
+            }
+            return;
+        }
+    }
+}
+
 /* CPU->VRAM data: the n x n block for native pixel (x, y), honouring the mask bit. */
 static void up_block(uint32_t x, uint32_t y, uint16_t v)
 {
@@ -1110,6 +1144,7 @@ static void cmd_polygon(const uint32_t *p)
         for (i = 0; i < nv; i++) {
             float fx, fy, fw;
             if (g_pgxp && pgxp_lookup(cmd_addr[xyi[i]], p[xyi[i]], &fx, &fy, &fw)) {
+                weld(p[xyi[i]], &fx, &fy, fw);
                 if (replaying)
                     interp_point(&fx, &fy, &fw);
                 v[i].x = (int32_t)lrintf((fx + (float)S.offs_x) * (float)TH.n);
@@ -1796,6 +1831,7 @@ void GPU_REPLAY_RUN(const InterpJob *j, int32_t y0, int32_t y1)
     int i, len;
     if (!dither_lut_ready)
         build_dither_lut();
+    weld_gen++;
     band_y0 = y0;
     band_y1 = y1;
     for (y = j->y0; y < j->y1; y++) {
@@ -2284,6 +2320,7 @@ uint32_t gpu_read_status(void)
 
 void gpu_vblank(void)
 {
+    weld_gen++;
     hud_after = 0;
     anchor_gen++;
     if (S.disp_mode & 0x20u)
@@ -2348,6 +2385,26 @@ void gpu_get_display(GpuDisplay *d)
     d->hres_mode = (int)(((S.disp_mode >> 6) & 1u) | ((S.disp_mode & 3u) << 1));
 }
 
+/* A pixel of the upscaled picture at (x, y) of the display area */
+static uint16_t th_pixel(const GpuDisplay *d, int n, int x, int y)
+{
+    uint32_t hx = (uint32_t)(d->vram_x * n + x) % (1024u * (uint32_t)n);
+    uint32_t hy = (uint32_t)(d->vram_y * n + y) % (512u * (uint32_t)n);
+    return TH.buf[(hy << TH.sh) + hx];
+}
+
+/* Is the black pixel (x, y) in a hairline across (dx, dy): fewer than two native pixels of black
+ * (2n - 1) between drawn ones, inside the picture? */
+static int hairline(const GpuDisplay *d, int n, int w, int h, int x, int y, int dx, int dy)
+{
+    int a, b, m = 2 * n - 1;
+    for (a = 1; a <= m && x - a * dx >= 0 && y - a * dy >= 0 && !th_pixel(d, n, x - a * dx, y - a * dy); a++)
+        ;
+    for (b = 1; b <= m && x + b * dx < w && y + b * dy < h && !th_pixel(d, n, x + b * dx, y + b * dy); b++)
+        ;
+    return a + b - 1 <= m && x - a * dx >= 0 && y - a * dy >= 0 && x + b * dx < w && y + b * dy < h;
+}
+
 void gpu_render_display(uint32_t *out, int *w, int *h)
 {
     GpuDisplay d;
@@ -2372,7 +2429,19 @@ void gpu_render_display(uint32_t *out, int *w, int *h)
             for (x = 0; x < *w; x++) {
                 int hx = d.vram_x * n + x;
                 uint32_t p = row[hx >= W ? hx - W : hx];
-                uint32_t r = p & 31u, g = (p >> 5) & 31u, b = (p >> 10) & 31u;
+                uint32_t r, g, b;
+                if (!p && g_pgxp) {
+                    /* a hairline of black where the native picture has something drawn: a crack
+                     * between polygons that PGXP's precise positions left open (welding closes
+                     * those between meeting corners; a corner partway along another polygon's
+                     * edge still leaves one): shown with the native pixel */
+                    uint16_t nat = S.vram[(((uint32_t)(d.vram_y + y / n) & 511u) << 10) | ((uint32_t)(d.vram_x + x / n) & 1023u)];
+                    if (nat && (hairline(&d, n, *w, *h, x, y, 1, 0) || hairline(&d, n, *w, *h, x, y, 0, 1)))
+                        p = nat;
+                }
+                r = p & 31u;
+                g = (p >> 5) & 31u;
+                b = (p >> 10) & 31u;
                 r = (r << 3) | (r >> 2);
                 g = (g << 3) | (g >> 2);
                 b = (b << 3) | (b >> 2);

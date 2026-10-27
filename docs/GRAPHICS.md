@@ -52,6 +52,25 @@ word), each vertex whose RAM word still holds the recorded value is drawn at the
 position, and with its depth for perspective-correct texturing. If the game changed the
 word in between, the shadow value no longer matches and the vertex is drawn as usual.
 
+**Cracks.** Models that meet (a door in its wall, a wall on the ground, the nameplate on the
+dog house) are projected separately. Their meeting corners land on the same whole pixel, so the
+console shows no gap, but their precise positions can be a fraction of a pixel apart, and in
+the upscaled picture the background showed through as black hairlines, flashing as the camera
+moved (more with widescreen, whose squeeze moves every position). Two measures close them:
+
+- **Welding.** Within a frame, a precise vertex on the same whole pixel and at nearly the same
+  depth (within 1/256: the same point of the world, apart from the GTE's rounding) as an earlier
+  one takes that one's precise position, so corners that meet on the console's grid meet
+  exactly. Vertices of unrelated things that merely share a pixel keep their own positions.
+- **Hairline fill.** A corner partway along another polygon's edge (a T-junction) has no
+  partner to weld to. When the picture is shown, a black pixel in a hairline (narrower than two
+  native pixels, between drawn pixels across or down) where the native picture has something
+  drawn is shown with that native pixel. A real gap is black at native size too and
+  stays black; the check only runs for black pixels.
+
+In a replay walking past the farm house, these removed the lines at the door, the window and
+the nameplate; neither changes anything with PGXP off.
+
 ## 2D objects on a 3D field
 
 Stumps, rocks, weeds, flowers, villagers and the player are not 3D models. The game
