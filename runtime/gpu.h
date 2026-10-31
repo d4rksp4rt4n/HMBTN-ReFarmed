@@ -92,7 +92,8 @@ extern int g_item_call;           /* an item on (or thrown to) the ground is bei
  * screen's drawn) to the pattern's period across in pixels; its tiles are tagged
  * (gpu_menu_begin) and repeated to fill the wide picture, and gpu_display_menu says the picture
  * shown is such a screen. -1: a sprite of a screen with no background to repeat (the Natsume
- * logo over a plain screen clear), which keeps its 4:3 shape on the wide screen. */
+ * logo over a plain screen clear), which keeps its 4:3 shape on the wide screen; -2: the same, but
+ * the sides beside the quads at its left and right edges are white (the map, in its clouds). */
 extern int g_menu_tile;
 void     gpu_menu_begin(int period);
 int      gpu_display_menu(void);

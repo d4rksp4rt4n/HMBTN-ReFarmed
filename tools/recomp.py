@@ -467,6 +467,7 @@ ENTRY_HOOKS[0x8002194C] = 'if (g_view2_run) return;'
 # cancel, anything else = still choosing); the hook right after each call can answer for the
 # player (runtime/memcard.c; second argument 1 on the screens that read a diary). Each screen's opening (the delay slot of its jal 801372A0, state
 # byte 80137584 = 0) starts a new visit.
+_MAP_DRAWS = (0x8011E72C, 0x8011E7C4, 0x8011E86C, 0x8011E97C, 0x8011ED54)
 MODULE_SITE_HOOKS = {
     # The farm/town control copies the pad state for the player each tick: held buttons to
     # 801231F4, newly pressed to 801231F8 (800C41C0 / its jal's delay slot 800C41C8);
@@ -475,7 +476,16 @@ MODULE_SITE_HOOKS = {
     # the X action's target (800C7AC0: v1 = its kind - 1, a jump table of 49): farmer 2 does not
     # open the whole game's things (runtime/p2.c)
     'GF_FARM': {0x800C41C8: 'quick_bag_filter();', 0x800C1874: 'p2_tick_end();',
-                0x800C7B70: 'R[3] = p2_x_target(R[3]);'},
+                0x800C7B70: 'R[3] = p2_x_target(R[3]);',
+                # the map screen (SELECT) draws the map picture (320x240 in quads: the map and a
+                # row of cloud strips under it) with the jal at 8011ED54 (8011ECC4), and while it
+                # fades in and out with those at 8011E72C, 8011E7C4, 8011E86C, 8011E97C: tagged
+                # with no background to repeat but white sides (-2), so the screen is wide
+                # (runtime/gpu.c, edge_wide)
+                # (set in each jal's delay slot, cleared where it returns, or in the delay slot of
+                # the jal there: a hook on a jal itself isn't emitted)
+                **{a + 4: 'g_menu_tile = -2;' for a in _MAP_DRAWS},
+                **{a + 12 if a != 0x8011ED54 else a + 8: 'g_menu_tile = 0;' for a in _MAP_DRAWS}},
     'saveload': {0x8012EF28: 'R[3] = memcard_slot_menu(R[3], 0);',
                  0x80130678: 'R[3] = memcard_slot_menu(R[3], 1);',
                  0x80131654: 'R[3] = memcard_slot_menu(R[3], 1);',
@@ -768,9 +778,9 @@ class Emitter:
                 cyc += insn_cycles(i)
                 if i.mn == 'syscall':
                     flush()
-                s = emit_simple(i, mod)
+                s = with_hooks(i, emit_simple(i, mod), fi.start, mod).strip()   # hooks on a nop too
                 if s:
-                    P('  ' + with_hooks(i, s, fi.start, mod) + '  /* %08x: %s */' % (a, i))
+                    P('  ' + s + '  /* %08x: %s */' % (a, i))
                 ft = a + 4
                 if i.kind == 'invalid':
                     continue
@@ -784,9 +794,8 @@ class Emitter:
             # control transfer with delay slot
             d = mod.insn(a + 4) if mod.in_code(a + 4) else None
             cyc += 1 + (insn_cycles(d) if d is not None else 1)
-            ds = emit_simple(d, mod) if d is not None and not d.has_delay else ''
+            ds = with_hooks(d, emit_simple(d, mod), fi.start, mod).strip() if d is not None and not d.has_delay else ''
             if ds:
-                ds = with_hooks(d, ds, fi.start, mod)
                 th = MODULE_TEXT_HOOKS.get(mod.name)
                 if th and i.mn == 'jal' and i.target == th[0]:
                     ds += ' ' + th[1]

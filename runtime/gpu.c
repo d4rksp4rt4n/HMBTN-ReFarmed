@@ -1765,6 +1765,55 @@ static const TexImage *texpack_quad(const PgxpWord *t, const TriVtx *v, int nv)
     return r;
 }
 
+/* Widescreen: a full-screen picture with no pattern to repeat (the map screen) is squeezed like the
+ * HUD; where one of its quads (v: as drawn, in target pixels; nat: its native corners) reaches the
+ * left or right edge of the drawing area, the side of the wide picture beside it is white, like
+ * the clouds around the map, in the upscaled copy only. (Its edge texels drawn on out to the side
+ * made streaks: the clouds' edge is white and light grey, the sea runs off on the right.) */
+static void edge_wide(const PolyCtx *c, const TriVtx *v, const TriVtx *nat)
+{
+    int32_t lo = nat[0].x, hi = nat[0].x;
+    int i, j, side;
+    PolyCtx w = *c;
+    w.gouraud = w.textured = w.raw = w.dither = 0;
+    w.blend = -1;
+    /* a white texel modulated by the quad's colour, as the map fades in and out */
+    w.flat_r = c->flat_r >= 128 ? 255 : c->flat_r * 2;
+    w.flat_g = c->flat_g >= 128 ? 255 : c->flat_g * 2;
+    w.flat_b = c->flat_b >= 128 ? 255 : c->flat_b * 2;
+    w.flat_rgb15 = (w.flat_r >> 3) | ((w.flat_g >> 3) << 5) | ((w.flat_b >> 3) << 10);
+    for (i = 1; i < 4; i++) {
+        lo = nat[i].x < lo ? nat[i].x : lo;
+        hi = nat[i].x > hi ? nat[i].x : hi;
+    }
+    for (side = 0; side < 2; side++) {
+        const int32_t at = side ? hi : lo;
+        TriVtx e[4];
+        int ok = side ? hi >= S.clip_x1 + 1 : lo <= S.clip_x0;
+        for (i = 0; i < 4 && ok; i++) {
+            int k = -1;             /* the corner at this edge in i's row */
+            for (j = 0; j < 4; j++)
+                if (nat[j].y == nat[i].y && nat[j].x == at)
+                    k = j;
+            ok = k >= 0 && hi > lo;
+            if (!ok)
+                break;
+            e[i] = v[k];
+            if (i == k)
+                e[i].x = side ? (S.clip_x1 + 1) * TH.n : S.clip_x0 * TH.n;
+        }
+        if (!ok)
+            continue;
+#if !defined(GPU_REPLAY) && !defined(GPU_BAND)
+        if (atomic_load_explicit(&nbands, memory_order_relaxed)) {
+            band_push(&w, e, NULL, 1);
+            continue;
+        }
+#endif
+        draw_up(&w, e, NULL, 1);
+    }
+}
+
 static void cmd_polygon(const uint32_t *p)
 {
     uint32_t op = p[0] >> 24;
@@ -1849,6 +1898,7 @@ static void cmd_polygon(const uint32_t *p)
         const PgxpWord *st = NULL;
         const TexImage *rep = NULL;
         PgxpWord stmp;
+        int edge = 0;
         if (g_sprite_tags) {    /* a 2D sprite quad built at a projected point: every corner tagged alike */
             const PgxpWord *t0 = &pgxp_mem[(cmd_addr[xyi[0]] & 0x1FFFFCu) >> 2];
             int same = 1;
@@ -1859,6 +1909,12 @@ static void cmd_polygon(const uint32_t *p)
             }
             if (same)
                 st = t0;
+            if (st && st->cx == MENU_CX) {      /* the map screen's picture: like the HUD, and edge_wide */
+                buf_menu[draw_buf()] = anchor_gen;
+                hud_after = 1;
+                edge = tex && quad;
+                st = &hud_word;
+            }
             if (st && st->cx == HUD_CX && hud_sx() != 1.0f)
                 hud_after = 1;
             if (!st && hud_after && hud_sx() != 1.0f) {
@@ -1910,6 +1966,8 @@ static void cmd_polygon(const uint32_t *p)
         if (precise && !st)
             cur_tag = (uint16_t)(TAG_3D | (cur_tag & 0x3FFFu));
         precise = precise && moved && !st && c.blend < 0 && TH.tag;   /* see-through ones would blend twice */
+        if (edge)
+            edge_wide(&c, v, u);
 #if !defined(GPU_REPLAY) && !defined(GPU_BAND)
         if (atomic_load_explicit(&nbands, memory_order_relaxed)) {
             if (!rep) {

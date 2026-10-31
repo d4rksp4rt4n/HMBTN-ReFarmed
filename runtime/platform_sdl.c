@@ -603,9 +603,9 @@ static int prescale_target(int w, int h) {
 }
 
 /* Widescreen: the GTE squeezes the 3D world into the picture, which is shown stretched to the
- * wider aspect. The title screen and the full-screen menus are wide too: the GPU repeats their
- * background at the sides and keeps the rest 4:3 in the middle (upscale 2+). Other screens the
- * game draws without 3D (videos, the map, ...) are shown as they are, at 4:3: the picture is wide
+ * wider aspect. The title screen, the full-screen menus and the map are wide too: the GPU fills
+ * the sides from their background and keeps the rest 4:3 in the middle (upscale 2+). Other screens
+ * the game draws without 3D (videos, ...) are shown as they are, at 4:3: the picture is wide
  * while the game projected a 3D scene's worth of vertices in one of the last few frames (it may
  * draw only every other frame; with a full-screen menu open it still projects a vertex or two,
  * against thousands for a room) and the display isn't 24-bit video. Leaving an area, the game

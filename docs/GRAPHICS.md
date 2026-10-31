@@ -195,8 +195,8 @@ with the squeezed coordinates, so it draws what a wider screen would show.
   sprite is squeezed by the same factor about its anchor (nearest texel, like depth scaling;
   at upscale 4 and 16:9 a texel is exactly 3 pixels wide). This needs upscale 2 or more but
   not PGXP: without PGXP the anchors are recorded with no sub-pixel offset.
-- **Screens without 3D stay 4:3,** except the title screen and the full-screen menus (below).
-  Videos, the map and "Now Loading" are 2D pictures. The picture is shown wide while the game projected at least 32 vertices in one of the last 10
+- **Screens without 3D stay 4:3,** except the title screen, the full-screen menus and the map
+  (below). Videos and "Now Loading" are 2D pictures. The picture is shown wide while the game projected at least 32 vertices in one of the last 10
   frames, and never for 24-bit video. "Any projection" is not enough: with the full-screen
   Start menu open the game still projects one vertex every other frame (against ~2,600 for
   the house), and the menu came out stretched.
@@ -218,7 +218,14 @@ with the squeezed coordinates, so it draws what a wider screen would show.
   scroll, so it repeats every 320 pixels; it is tagged the same way. The Natsume logo before it
   (800B9324) is one sprite over a white screen clear, which covers the wide picture as it is: the
   logo is tagged with no background to repeat, so the screen is wide and the logo keeps its 4:3
-  shape (the black after it stays wide too, so the intro never switches). In the upscaled copy each
+  shape (the black after it stays wide too, so the intro never switches). The map screen (SELECT)
+  is one 320 × 240 picture in quads (the map in its clouds and a row of cloud strips under it),
+  drawn by the field code's calls at 8011ED54 and, while it fades in and out, 8011E72C,
+  8011E7C4, 8011E86C and 8011E97C: tagged with no background to repeat, it is squeezed like the
+  HUD, and the sides beside its quads at the left and right edges are white, modulated by the
+  quads' colour so they fade with it. Its edge texels drawn on out to the sides made streaks (the
+  clouds' edge is white and light grey, and on the right the sea runs off the picture, cut there
+  as it is at 4:3). In the upscaled copy each
   background tile is squeezed about the middle, like the HUD, and drawn again a period, two
   periods, … to the left and right to fill the sides; the drawing area shows the tile where it
   is, the period left of it only the copy one period left, and so on, so every pixel gets

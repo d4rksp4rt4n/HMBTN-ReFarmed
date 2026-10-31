@@ -1332,6 +1332,29 @@ static void test_pgxp_sprite(void)
         gpu_vblank();
         hud_scene(0);
         CHECK(!gpu_display_menu(), "next frame without a menu background: no menu");
+        /* the map screen (-2): a textured quad across the whole width, coloured 404040 (half way
+         * through a fade), is squeezed like the HUD (target 160..1119), and the sides beside it
+         * are white modulated alike (16 of 31); the screen is shown wide */
+        gpu_vblank();
+        screen_320();
+        for (i = 0; i < 256; i++)
+            tex[i] = rgb15(i % 16 + 4, i / 16 + 4, (i * 7) % 31 + 1);
+        upload(640, 0, 16, 16, tex);
+        gpu_menu_begin(-2);
+        for (i = 0; i < 4; i++)
+            gpu_sprite_tag(0x3400u + 8u * (uint32_t)i, xy((i & 1) * 320, 100 + (i >> 1) * 16));
+        gp0(0x2C404040);
+        for (i = 0; i < 4; i++) {
+            gp0_at(xy((i & 1) * 320, 100 + (i >> 1) * 16), 0x3400u + 8u * (uint32_t)i);
+            gp0((i == 1 ? 0x10Au << 16 : 0u) | ((uint32_t)(i >> 1) * 15u << 8) | (uint32_t)(i & 1) * 15u);
+        }
+        gpu_render_display(out, &w, &h);
+        CHECK(gpu_display_menu(), "map screen: shown wide");
+        CHECK(out[416 * w] == argb15(rgb15(16, 16, 16)) && out[416 * w + 159] == argb15(rgb15(16, 16, 16)) &&
+              out[416 * w + 1279] == argb15(rgb15(16, 16, 16)) && out[416 * w + 1120] == argb15(rgb15(16, 16, 16)) &&
+              out[416 * w + 160] != out[416 * w] && out[416 * w + 1119] != out[416 * w],
+              "map screen: picture squeezed into 160..1119, sides white modulated like it");
+        gpu_vblank();
         g_sprite_ws = 1.0f;
     }
 
