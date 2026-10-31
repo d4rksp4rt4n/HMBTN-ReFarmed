@@ -186,7 +186,7 @@ static void set_option(const char *key, const char *val) {
     else if (!strcmp(key, "p2view_upscale")) g_cfg.p2view_upscale = atoi(val);
     else if (!strcmp(key, "pgxp")) g_cfg.pgxp = atoi(val);
     else if (!strcmp(key, "perspective")) g_cfg.perspective = atoi(val);
-    else if (!strcmp(key, "sprite_depth")) {}   /* older ini files: always off now (--sprite-depth for tests) */
+    else if (!strcmp(key, "sprite_depth")) {}   /* older ini files: always on now, with pgxp (--no-sprite-depth to compare) */
     else if (!strcmp(key, "crackfix")) g_cfg.crackfix = atoi(val);
     else if (!strcmp(key, "interp")) g_cfg.interp = atoi(val);
     else if (!strcmp(key, "texturepack")) g_cfg.texturepack = atoi(val);
@@ -305,7 +305,7 @@ static void usage(void) {
            "  --drawthreads N       threads drawing the upscaled 3D, 0..4 (default: by processor)\n"
            "  --pgxp                precise 3D vertex positions, less wobble (needs --upscale 2+)\n"
            "  --perspective         perspective-correct textures (needs --pgxp)\n"
-           "  --sprite-depth        scale 2D objects with their depth (needs --pgxp)\n"
+           "  --no-sprite-depth     2D objects keep one size (they scale with depth by default, with --pgxp)\n"
            "  --no-crackfix         leave the cracks between models open (faster)\n"
            "  --widescreen W:H      wider 3D view, e.g. 16:9 (2D objects keep their shape with --upscale 2+)\n"
            "  --interp              in-between pictures: camera and 3D scenery at 60 fps (needs --pgxp)\n"
@@ -393,6 +393,7 @@ int main(int argc, char **argv) {
     g_cfg.fastcard = 1;
     g_cfg.draw_threads = -1;
     g_cfg.crackfix = 1;
+    g_cfg.sprite_depth = 1;
     g_cfg.quickui = 1;
     g_cfg.fastload = 1;
     g_cfg.skipscenes = 1;
@@ -415,6 +416,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--pgxp")) g_cfg.pgxp = 1;
         else if (!strcmp(a, "--perspective")) g_cfg.perspective = 1;
         else if (!strcmp(a, "--sprite-depth")) g_cfg.sprite_depth = 1;
+        else if (!strcmp(a, "--no-sprite-depth")) g_cfg.sprite_depth = 0;
         else if (!strcmp(a, "--no-crackfix")) g_cfg.crackfix = 0;
         else if (!strcmp(a, "--interp")) g_cfg.interp = 1;
         else if (!strcmp(a, "--no-interp")) g_cfg.interp = 0;

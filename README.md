@@ -202,7 +202,7 @@ learned about the game while making them: [docs/GRAPHICS.md](docs/GRAPHICS.md).
 |  | `fullscreen` | `0` | start in fullscreen |
 |  | `scaling` | `sharp-bilinear` | `sharp-bilinear` = sharp pixels that stay even at any size, `sharp` = nearest pixel, `smooth` = bilinear |
 |  | `upscale` | `1` | internal resolution 1–4 (2–4 = smoother 3D edges, more CPU) |
-|  | `pgxp` | `0` | `1` = precise 3D vertex positions, no wobble (needs `upscale` 2+) |
+|  | `pgxp` | `0` | `1` = precise 3D vertex positions, no wobble; 2D objects get smaller further away, like the 3D ground (needs `upscale` 2+) |
 |  | `crackfix` | `1` | `1` = close the thin cracks between models that `pgxp` opens; `0` is about 1 ms a frame faster at upscale 4 (needs `pgxp`) |
 |  | `perspective` | `0` | `1` = perspective-correct textures (needs `pgxp`) |
 |  | `widescreen` | `off` | `16:9`, `16:10` or `21:9` = wider 3D view; 2D objects and the HUD keep their shape with `upscale` 2+ |
@@ -226,7 +226,7 @@ learned about the game while making them: [docs/GRAPHICS.md](docs/GRAPHICS.md).
 |  | `stick_as_dpad` | `1` | the left analog stick also works as the D-pad |
 | `[launcher]` | `language` |  | the launcher's language, `en`, `pt` or `es` (its flags set it); not set: the system's |
 
-Command line options: `--fullscreen`, `--scale N`, `--scaling MODE`, `--upscale N`, `--pgxp`, `--no-crackfix`, `--perspective`, `--sprite-depth`, `--widescreen W:H`, `--interp`, `--texturepack`, `--dumptextures`, `--fastcd`,
+Command line options: `--fullscreen`, `--scale N`, `--scaling MODE`, `--upscale N`, `--pgxp`, `--no-crackfix`, `--perspective`, `--no-sprite-depth`, `--widescreen W:H`, `--interp`, `--texturepack`, `--dumptextures`, `--fastcd`,
 `--no-autoslot`, `--card N`, `--overclock N`, `--savedir DIR`, `--verify-data`, `--log 0..4`, and a disc image or data pack path. Testing
 options are described in [docs/TECHNICAL.md](docs/TECHNICAL.md#testing-and-debugging).
 
