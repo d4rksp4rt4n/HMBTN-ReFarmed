@@ -193,6 +193,7 @@ int netplay_active(void);
 int netplay_start(int *bank, const char *guest_dir);
 uint16_t netplay_frame(int frame, uint16_t local);
 const char *netplay_status(int *changed);
+unsigned netplay_build_id(void);  /* the co-op version: the same on any PC built from the same sources */
 void netplay_quit(void);
 
 /* ---- config ---- */

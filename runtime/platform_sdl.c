@@ -801,12 +801,12 @@ static void dump_ram(uint64_t frame) {
  * present the queue depth is used as the clock instead, so audio never drifts. */
 static int fast_forward;
 
-/* the window title shows the memory card in slot 1 (F1-F4) */
+/* the window title shows the memory card in slot 1 (F1-F4) and the co-op version */
 static void update_title(void) {
-    char t[200];
+    char t[240];
     const char *net = netplay_status(NULL);
-    if (net) snprintf(t, sizeof t, "Harvest Moon: Back to Nature  [Memory card %d]  -  %s", memcard_bank(), net);
-    else snprintf(t, sizeof t, "Harvest Moon: Back to Nature  [Memory card %d]", memcard_bank());
+    if (net) snprintf(t, sizeof t, "Harvest Moon: Back to Nature  [Memory card %d]  [build %08x]  -  %s", memcard_bank(), netplay_build_id(), net);
+    else snprintf(t, sizeof t, "Harvest Moon: Back to Nature  [Memory card %d]  [build %08x]", memcard_bank(), netplay_build_id());
     if (win) SDL_SetWindowTitle(win, t);
 }
 

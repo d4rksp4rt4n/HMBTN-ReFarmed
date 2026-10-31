@@ -555,6 +555,7 @@ int main(int argc, char **argv) {
     if (g_cfg.overclock > 400) g_cfg.overclock = 400;
     g_cycle_scale = 256u * 100u / (uint32_t)g_cfg.overclock;
     if (g_cfg.overclock != 100) LOGI("CPU overclock %d%%", g_cfg.overclock);
+    LOGI("build %08x (online co-op connects only to the same)", netplay_build_id());
     char card1[1200];
     memcard_bank_file(card1, sizeof card1);
     if (g_cfg.record_path[0]) {         /* the replay starts from the same memory card (the one in slot 1): <recording>_card1.mcd */

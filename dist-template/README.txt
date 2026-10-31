@@ -69,7 +69,8 @@ In launcher.pyw, page "Online co-op": one player hosts (waits for the friend), t
 with the host's address (a VPN such as Radmin VPN or Tailscale gives both PCs an address; the
 page shows this PC's). By hand: HarvestMoonBTN --host [PORT] (default 7845) and
 HarvestMoonBTN --join ADDRESS[:PORT]; --netdelay N sets the input delay in frames (default 3).
-Both copies must be built from the same sources. The host sends its memory cards; the friend
+Both copies must be built from the same sources (the window title and the launcher's co-op page show the
+version: "build" and 8 characters, the same on both PCs). The host sends its memory cards; the friend
 plays on copies of them (saves\netplay), so the friend's own cards are not touched. In co-op,
 Tab and F1-F4 are off and the window title shows the connection.
 Two farmers (experimental, "Two farmers" on the co-op page, or --p2 on one PC with a second

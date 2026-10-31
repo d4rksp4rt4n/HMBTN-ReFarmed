@@ -340,6 +340,7 @@ UI = {
             ('!', 'There is one of each tool: farmer 2 starts with nothing and takes tools from the tool chest.'),
             ('!', 'Only what farmer 1 carries is saved: when saving, farmer 2\'s tools go back to the chest.')],
         'my_ip': 'Addresses of this PC (give one to your friend): %s',
+        'build_id': "Game version: %s. Your friend's must be the same (it is also in the game's window title).",
         'need_addr': 'Fill in the host address first.',
         'how': 'How to connect', 'how_list': [
             ('1', 'Both need this same game folder version (the same HarvestMoonBTN.exe).'),
@@ -413,6 +414,7 @@ UI = {
             ('!', 'Há uma de cada ferramenta: o fazendeiro 2 começa sem nada e pega no baú de ferramentas.'),
             ('!', 'Só o que o fazendeiro 1 carrega é salvo: ao salvar, as ferramentas do 2 voltam para o baú.')],
         'my_ip': 'Endereços deste PC (passe um para o amigo): %s',
+        'build_id': 'Versão do jogo: %s. A do amigo tem que ser a mesma (ela também fica no título da janela do jogo).',
         'need_addr': 'Preencha o endereço do anfitrião primeiro.',
         'how': 'Como conectar', 'how_list': [
             ('1', 'Os dois precisam desta mesma versão do jogo (o mesmo HarvestMoonBTN.exe).'),
@@ -486,6 +488,7 @@ UI = {
             ('!', 'Hay una de cada herramienta: el granjero 2 empieza sin nada y las toma del baúl.'),
             ('!', 'Solo se guarda lo que lleva el granjero 1: al guardar, las herramientas del 2 vuelven al baúl.')],
         'my_ip': 'Direcciones de este PC (pásale una a tu amigo): %s',
+        'build_id': 'Versión del juego: %s. La de tu amigo tiene que ser la misma (también está en el título de la ventana del juego).',
         'need_addr': 'Escribe primero la dirección del anfitrión.',
         'how': 'Cómo conectarse', 'how_list': [
             ('1', 'Los dos necesitan esta misma versión del juego (el mismo HarvestMoonBTN.exe).'),
@@ -646,6 +649,16 @@ def local_ips():
     except OSError:
         pass
     return [ip for i, ip in enumerate(ips) if ip not in ips[:i] and not ip.startswith('127.')]
+
+
+def build_id():
+    """the co-op version the game was built with (runtime/netplay.c keeps it as text in the executable)"""
+    try:
+        with open(EXE, 'rb') as f:
+            m = re.search(rb'HMBTN-BUILD 0x([0-9a-f]{8})', f.read())
+        return m.group(1).decode() if m else None
+    except OSError:
+        return None
 
 
 ASSETS = os.path.join(HERE, 'launcher-assets')
@@ -1147,6 +1160,10 @@ def main():
         ips = local_ips()
         if ips:
             tk.Label(parent, text=T('my_ip') % '   '.join(ips), font=F['b'], bg=BG, fg=BLUE, anchor='w',
+                     justify='left', wraplength=px(640)).pack(fill='x', padx=24, pady=(0, 10))
+        bid = build_id()
+        if bid:
+            tk.Label(parent, text=T('build_id') % bid, font=F['b'], bg=BG, fg=BLUE, anchor='w',
                      justify='left', wraplength=px(640)).pack(fill='x', padx=24, pady=(0, 10))
         options_page(parent, 'coop')
         section(parent, T('how'))

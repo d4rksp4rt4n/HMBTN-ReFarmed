@@ -202,6 +202,12 @@ static void drop(const char *why) {
 #ifndef HMBTN_BUILD_ID
 #define HMBTN_BUILD_ID 0
 #endif
+#define BUILD_TEXT2(x) #x
+#define BUILD_TEXT(x) BUILD_TEXT2(x)
+/* ... also as text in the executable, where the launcher reads it without running it */
+__attribute__((used)) static const char build_tag[] = "HMBTN-BUILD " BUILD_TEXT(HMBTN_BUILD_ID);
+
+unsigned netplay_build_id(void) { return HMBTN_BUILD_ID; }
 
 static uint32_t ram_hash(void) {
     const uint32_t *w = (const uint32_t *)ram_ptr(0x80000000u);
@@ -320,8 +326,13 @@ int netplay_start(int *bank, const char *guest_dir) {
         snprintf(line, sizeof line, "HMBTN-NETPLAY %d %08x\n", NET_VERSION, me);
         if (!send_all(line, (int)strlen(line)) || !recv_line(line, sizeof line)) { drop("Coop: o anfitrião não respondeu"); return 0; }
         if (strncmp(line, "OK ", 3)) {
-            drop(!strcmp(line, "ERR version") ? "Coop: versões diferentes do jogo (os dois precisam do mesmo .exe)"
-                                              : "Coop: o anfitrião recusou a conexão");
+            unsigned theirs = 0;
+            if (sscanf(line, "ERR version %x", &theirs) == 1) {     /* the host's version (older hosts: none) */
+                char why[160];
+                snprintf(why, sizeof why, "Coop: versões diferentes do jogo (a sua: %08x, a do anfitrião: %08x)", me, theirs);
+                drop(why);
+            } else drop(!strcmp(line, "ERR version") ? "Coop: versões diferentes do jogo (os dois precisam do mesmo .exe)"
+                                                     : "Coop: o anfitrião recusou a conexão");
             return 0;
         }
         int d = 0, b = 1;
@@ -351,8 +362,12 @@ int netplay_start(int *bank, const char *guest_dir) {
         unsigned v = 0, h = 0;
         if (!recv_line(line, sizeof line) || sscanf(line, "HMBTN-NETPLAY %u %x", &v, &h) != 2) { drop("Coop: conexão inválida"); return 0; }
         if (v != NET_VERSION || h != me) {
-            send_all("ERR version\n", 12);
-            drop("Coop: o amigo tem outra versão do jogo (os dois precisam do mesmo .exe)");
+            char why[160];
+            snprintf(line, sizeof line, "ERR version %08x\n", me);
+            send_all(line, (int)strlen(line));
+            if (v != NET_VERSION) h = 0;    /* another co-op protocol: its build id means nothing here */
+            snprintf(why, sizeof why, "Coop: o amigo tem outra versão do jogo (a sua: %08x, a do amigo: %08x)", me, h);
+            drop(why);
             return 0;
         }
         snprintf(line, sizeof line, "OK %d %d\n", delay, *bank);

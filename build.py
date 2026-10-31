@@ -120,6 +120,30 @@ def make_pak(disc_path):
     return pak
 
 
+def behind_main():
+    """warn when this git checkout lacks commits of main on GitHub: online co-op only connects to a
+    game built from the same sources, so a build of an older branch can't play with the others'"""
+    git = lambda *a: subprocess.run(['git', '-C', ROOT, *a], capture_output=True, text=True, timeout=30)
+    try:
+        if git('rev-parse', '--is-inside-work-tree').stdout.strip() != 'true':
+            return
+        remotes = git('remote').stdout.split()
+        remote = 'upstream' if 'upstream' in remotes else 'origin' if 'origin' in remotes else None
+        if not remote or git('fetch', '--quiet', remote, 'main').returncode:
+            return                                  # offline, or no main there: nothing to compare with
+        missing = git('log', '--oneline', '--no-merges', 'HEAD..%s/main' % remote).stdout.splitlines()
+    except (OSError, subprocess.SubprocessError):
+        return                                      # no git
+    if missing:
+        print('\nWARNING: this checkout lacks %d commit(s) of %s/main:' % (len(missing), remote))
+        for line in missing[:8]:
+            print('   ', line)
+        if len(missing) > 8:
+            print('    ...')
+        print('Online co-op only connects to a game built from the same sources: a friend who builds main\n'
+              'gets another version. To have them: git merge %s/main\n' % remote)
+
+
 def main():
     args = sys.argv[1:]
     if '-h' in args or '--help' in args:
@@ -130,6 +154,7 @@ def main():
     jobs = int(args[args.index('--jobs') + 1]) if '--jobs' in args else None
     linux = opt('--linux') or platform.system() != 'Windows'
 
+    behind_main()
     disc_path = find_disc(disc_arg)
     print('disc image:', disc_path)
     extract(disc_path)
