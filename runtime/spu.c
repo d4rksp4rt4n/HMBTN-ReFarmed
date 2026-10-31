@@ -329,9 +329,16 @@ static void volume_write(int32_t *level, uint16_t *counter, uint16_t v)
 /* ------------------------------------------------------------------------------------ */
 /* voices                                                                               */
 
+/* online, the other farmer's menu sounds (its own player hears them) are keyed on quiet: those voices
+ * run as usual (the game sees the same sound chip) but are not heard here (p2_sfx_quiet) */
+int g_sfx_quiet;
+static uint32_t quiet_voices;
+
 static void key_on(int i)
 {
     Voice *vc = &S.voice[i];
+    if (g_sfx_quiet) quiet_voices |= 1u << i;
+    else quiet_voices &= ~(1u << i);
     vc->cur = (uint16_t)(VREG(i, 3) & 0xFFFEu);
     vc->counter = 0;
     vc->env = 0;
@@ -753,7 +760,7 @@ void spu_run(int samples, int16_t *out)
                 if (o > 0x7FFF) o = 0x7FFF;
             }
             vc->out = o;
-            if (o != 0) {
+            if (o != 0 && !((quiet_voices >> i) & 1)) {
                 int32_t l = (o * vc->vol[0]) >> 15;
                 int32_t r = (o * vc->vol[1]) >> 15;
                 suml += l;

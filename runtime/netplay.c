@@ -413,6 +413,7 @@ int netplay_start(int *bank, const char *guest_dir) {
     atexit(netplay_quit);           /* the game quits with exit(): tell the other side */
     snprintf(line, sizeof line, "Coop: %s (atraso %d)", role == 1 ? "o amigo entrou" : "conectado ao anfitrião", delay);
     set_status(line);
+    { extern int g_p2_online; g_p2_online = role; }   /* whose menu sounds are heard (p2.c) */
     return 1;
 }
 

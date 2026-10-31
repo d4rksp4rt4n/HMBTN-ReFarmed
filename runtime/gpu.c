@@ -3036,6 +3036,12 @@ uint32_t gpu_changes(void)
     return changes;
 }
 
+#ifdef GPU_VIEW2
+/* the second view's GPU takes only the VRAM transfers of a list (copies, loads): the game's lists
+ * when the second window keeps its picture (dma.c) still load what later pictures draw from */
+int g_view2_uploads_only;
+#endif
+
 void gpu_write_gp0(uint32_t w)
 {
 #ifdef GPU_ROUTED
@@ -3052,6 +3058,15 @@ void gpu_write_gp0(uint32_t w)
         vram_write_word(w);
         return;
     case GP0_STATE_POLYLINE:
+#ifdef GPU_VIEW2
+        if (g_view2_uploads_only) {     /* the line's words, not drawn */
+            if (S.pl_count == 0 && (w & 0xF000F000u) == 0x50005000u)
+                S.gp0_state = GP0_STATE_COMMAND;
+            else if (++S.pl_count >= (((S.pl_op >> 4) & 1) ? 2 : 1))
+                S.pl_count = 0;
+            return;
+        }
+#endif
         polyline_word(w);
         return;
     default:
@@ -3065,6 +3080,17 @@ void gpu_write_gp0(uint32_t w)
     if (S.cmd_count < S.cmd_need)
         return;
     S.cmd_count = 0;
+#ifdef GPU_VIEW2
+    if (g_view2_uploads_only && (S.cmd[0] >> 29) != 4 && (S.cmd[0] >> 29) != 5) {
+        uint32_t op = S.cmd[0] >> 24;
+        if ((op >> 5) == 2 && (op & 0x08)) {    /* a polyline: its words follow */
+            S.gp0_state = GP0_STATE_POLYLINE;
+            S.pl_op = op;
+            S.pl_count = 0;
+        }
+        return;
+    }
+#endif
     gp0_execute(S.cmd);
 }
 

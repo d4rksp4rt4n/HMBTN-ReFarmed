@@ -156,6 +156,7 @@ static void track(void) {
     uint64_t now = frame_count();
     if (tracked == now) return;
     tracked = now;
+    p2_scene();                     /* followed every frame (it notes when a talk or menu began) */
     int m = p2_menu();
     if (m >= 0) menu_seen = now;
     if (m != 1) mine_since = 0;
@@ -199,6 +200,11 @@ int p2view_held(void) {
  * the other farmer's window keeps its last picture: in the player's, the second window is held
  * (no run); in farmer 2's, the game's picture (its view on farmer 2 then) goes to farmer 2's window
  * and the game's window keeps its own (platform_sdl.c). */
+/* a scene no farmer started (p2.c): farmer 2's window shows the game's picture too */
+int p2view_scene(void) {
+    return g_view2 > 0 && p2_scene();
+}
+
 int p2view_swapped(void) {
     track();
     return g_view2 > 0 && swapped;

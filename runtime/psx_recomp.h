@@ -250,6 +250,8 @@ void p2_tick_begin(void);
 void cheats_tick(void);
 void p2_tick_end(void);
 int p2_faint_skipped(void);
+int p2_sfx_quiet(void);
+extern int g_sfx_quiet;
 int p2_thrown(CPU *c);
 int p2_trade_move(CPU *c);
 int p2_trade_kind(CPU *c);

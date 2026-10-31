@@ -374,7 +374,7 @@ static void save_screenshot(const uint32_t *px, int w, int h, uint64_t frame, in
         int up = gpu_upscale();
         if (!px2) px2 = calloc((size_t)1024 * 512 * up * up, sizeof(uint32_t));
         if (!px2) return;
-        if (p2view_swapped()) gpu_render_display(px2, &w2, &h2);              /* as the window */
+        if (p2view_swapped() || p2view_scene()) gpu_render_display(px2, &w2, &h2);              /* as the window */
         else if (v2i_shown) { memcpy(px2, v2i_px, (size_t)v2i_w * v2i_h * 4); w2 = v2i_w; h2 = v2i_h; }
         else if (!w2 || !p2view_held()) view2_gpu_render_display(px2, &w2, &h2);
         save_screenshot_as("frame2", px2, w2, h2, frame, wide);
@@ -724,7 +724,7 @@ static void present2(int wide_now) {
     int ww, wh, fresh = win2_due;
     if (!tex2) return;
     win2_due = 0;
-    if (p2view_swapped()) {             /* farmer 2 has the game: the game's picture is farmer 2's */
+    if (p2view_swapped() || p2view_scene()) {   /* farmer 2 has the game (or a scene): the game's picture */
         gpu_render_display(frame2_px, &w, &h);
         wide = wide_now;
         valid = 0;
@@ -741,7 +741,9 @@ static void present2(int wide_now) {
         fresh = 1;
         SDL_Rect src = { 0, 0, w, h };
         SDL_UpdateTexture(tex2, &src, v2i_px, w * 4);
-    } else if (!valid || (view2_gpu_changes() != changes && !p2view_held())) {
+    } else if ((!valid && !p2view_held()) || (view2_gpu_changes() != changes && !p2view_held())) {
+        /* a picture kept (the player's menu) is the last one shown: drawn again from the second
+         * GPU's VRAM after an in-between picture, it was whatever the menu's loads left there */
         view2_gpu_render_display(frame2_px, &w, &h);
         changes = view2_gpu_changes();
         wide = wide_now;
@@ -1034,7 +1036,7 @@ void platform_frame(void) {
          * so frame_black stays as it was */
         static int v2_valid;
         static uint32_t v2_changes;
-        int v2main = g_view2 == 2 && !p2view_swapped();
+        int v2main = g_view2 == 2 && !p2view_swapped() && !p2view_scene();
         if (!v2main) v2_valid = 0;
         if (v2main) {
             /* online guest with two farmers: its window shows farmer 2's view (farmer 1's talk or
@@ -1045,7 +1047,7 @@ void platform_frame(void) {
                 w = v2i_w;
                 h = v2i_h;
                 v2_valid = 0;           /* the next one is the frame's own again */
-            } else if (!v2_valid || (view2_gpu_changes() != v2_changes && !p2view_held())) {
+            } else if ((!v2_valid && !p2view_held()) || (view2_gpu_changes() != v2_changes && !p2view_held())) {
                 view2_gpu_render_display(frame_px, &w, &h);
                 v2_changes = view2_gpu_changes();
                 v2_valid = 1;
