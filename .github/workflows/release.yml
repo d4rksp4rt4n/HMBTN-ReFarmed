@@ -1,0 +1,75 @@
+# Publish the launcher as release v<VERSION> (VERSION in dist-template/launcher.pyw), built here from main.
+# Players' launchers find the newest published release, update themselves and rebuild the game from
+# their disc's files. The release holds only the launcher (its scripts and sources): nothing of the game.
+# Run it from the Actions tab: Release launcher -> Run workflow (on main).
+name: Release launcher
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: What changed
+        required: false
+      draft:
+        description: Draft (launchers ignore it until you publish it on the Releases page)
+        type: boolean
+        default: true
+
+permissions:
+  contents: write       # the tag and the release
+  id-token: write       # the build attestation
+  attestations: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Only from main
+        if: github.ref != 'refs/heads/main'
+        run: echo "::error::run this on main" && exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: '3.13'
+
+      - run: python -m pip install pyinstaller==6.22.3
+
+      - run: python tools/build_launcher.py
+
+      - name: Check the version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYINSTALLER_RESET_ENVIRONMENT: '1'
+        run: |
+          version=$(sed -n "s/^VERSION = '\([0-9.]*\)'.*/\1/p" dist-template/launcher.pyw)
+          built=$(dist-template/HarvestMoonBTN-Launcher.exe --version)
+          if [ "$built" != "$version" ]; then
+            echo "::error::the built launcher says '$built', launcher.pyw says '$version'"; exit 1
+          fi
+          if gh release view "v$version" >/dev/null 2>&1 || git ls-remote --exit-code --tags origin "v$version" >/dev/null; then
+            echo "::error::v$version exists already (maybe as a draft): raise VERSION in launcher.pyw"; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-path: dist-template/HarvestMoonBTN-Launcher.exe
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          NOTES: ${{ inputs.notes }}
+          DRAFT: ${{ inputs.draft }}
+        run: |
+          notes="${NOTES:-Launcher $VERSION.}"
+          notes+=$'\n\nPut HarvestMoonBTN-Launcher.exe in a folder and open it; its "Build from my disc" page makes the game from your own disc image. A launcher already in use updates itself.'
+          notes+=$'\n\nBuilt by this workflow from '"$GITHUB_SHA"$'. Check it: gh attestation verify HarvestMoonBTN-Launcher.exe --repo '"$GITHUB_REPOSITORY"
+          gh release create "v$VERSION" dist-template/HarvestMoonBTN-Launcher.exe --target "$GITHUB_SHA" \
+            --title "Launcher v$VERSION" --notes "$notes" $([ "$DRAFT" = true ] && echo --draft)

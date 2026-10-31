@@ -10,7 +10,7 @@ import os, re, struct, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))  # also as Launcher.exe
 INI = os.path.join(HERE, 'hmbtn.ini')
 EXE = os.path.join(HERE, 'HarvestMoonBTN.exe' if os.name == 'nt' else 'HarvestMoonBTN')
-# the launcher's release: tools/release.py publishes it on GitHub as v<VERSION>, with Launcher.exe attached;
+# the launcher's release: .github/workflows/release.yml publishes it on GitHub as v<VERSION>, with Launcher.exe;
 # a Launcher.exe finds newer ones there, updates itself and rebuilds the game
 VERSION = '1.0.0'
 RELEASES = 'https://api.github.com/repos/d4rksp4rt4n/HarvestMoonBTN-Recomp-Enhanced/releases/latest'

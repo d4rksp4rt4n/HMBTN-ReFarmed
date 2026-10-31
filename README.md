@@ -101,8 +101,10 @@ changing an `#include` or the toolchain, rewrite the file list with `python tool
 the exe with the new one (checked against the SHA-256 GitHub gives for it) and rebuilds the game
 with the new sources, from the files it took from your disc earlier, so the disc image isn't
 needed again. Your saves, settings and textures stay. Both co-op players get the same version
-this way. To publish one: raise `VERSION` in `dist-template/launcher.pyw`, run
-`python tools/build_launcher.py`, commit, merge into main, then `python tools/release.py "what changed"`.
+this way. To publish one: raise `VERSION` in `dist-template/launcher.pyw`, merge into main, then
+on GitHub run **Actions > Release launcher > Run workflow**. It builds the exe from main, checks
+its version, attests the build and makes the release, as a draft by default: try it, then
+publish it on the Releases page (launchers ignore drafts).
 
 ### Windows
 
@@ -307,7 +309,6 @@ tools/
   fetch_deps.py       downloads the Windows toolchain into deps/ (--min: only what the build reads)
   toolchain.txt       those files with their SHA-256 (written by min_toolchain.py)
   build_launcher.py   builds dist-template/HarvestMoonBTN-Launcher.exe, with the sources in it
-  release.py          publishes the launcher as a GitHub release (launchers update from there)
   iso.py              disc image + ISO 9660 reader
   mips.py, mdis.py    MIPS decoder, disassembler / cross-reference helper
   recomp.py           the static recompiler (MIPS -> C)
