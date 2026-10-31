@@ -398,8 +398,9 @@ def R(n):
 # Full-screen menus (toolbox, Start menu, memory card screens) draw a scrolling tiled background:
 # 800223D4 tiles the whole screen (24x24, x -12..344) through a callback (jalr at 80022498) that
 # builds each tile with the sprite builder. Those tiles are tagged, so the GPU knows which picture
-# is a menu and the frontend shows it at 4:3, from its first frame and with or without a black
-# screen before it.
+# is a menu, from its first frame and with or without a black screen before it, and widens it:
+# g_menu_tile is the pattern's period across, 96 (four animals in turn, the next row starting one
+# later, so the stripes run diagonally).
 SITE_HOOKS = {0x8001E02C: 'SPRITE_ANCHOR(R[3], R[2], R[4] == 0x80128B88u ? (p2_drawing() ? 3 : 1) : 0);',
               0x800D9590: 'SPRITE_ALIAS(MEM_R16(R[29] + 48u), MEM_R16(R[29] + 52u), MEM_R32(R[29] + 16u), R[2]);',
               0x8001D45C: 'R[4] = (uint32_t)gte_widescreen_angle((int32_t)R[4]);',
@@ -411,7 +412,7 @@ SITE_HOOKS = {0x8001E02C: 'SPRITE_ANCHOR(R[3], R[2], R[4] == 0x80128B88u ? (p2_d
               0x800CA034: 'g_held_call = 0;',
               0x800CC400: 'g_item_call = 1;',
               0x800CC404: 'g_item_call = 0;',
-              0x8002249C: 'g_menu_tile = 1;',
+              0x8002249C: 'g_menu_tile = 96;',
               0x800224A0: 'g_menu_tile = 0;'}
 ENTRY_HOOKS = {0x80016280: 'SPRITE_BEGIN(MEM_R16(R[29] + 24u), MEM_R16(R[29] + 28u));',
                0x800165D8: 'SPRITE_BEGIN(MEM_R16(R[29] + 20u), MEM_R16(R[29] + 24u));',
@@ -466,6 +467,7 @@ ENTRY_HOOKS[0x8002194C] = 'if (g_view2_run) return;'
 # cancel, anything else = still choosing); the hook right after each call can answer for the
 # player (runtime/memcard.c; second argument 1 on the screens that read a diary). Each screen's opening (the delay slot of its jal 801372A0, state
 # byte 80137584 = 0) starts a new visit.
+_MAP_DRAWS = (0x8011E72C, 0x8011E7C4, 0x8011E86C, 0x8011E97C, 0x8011ED54)
 MODULE_SITE_HOOKS = {
     # The farm/town control copies the pad state for the player each tick: held buttons to
     # 801231F4, newly pressed to 801231F8 (800C41C0 / its jal's delay slot 800C41C8);
@@ -474,7 +476,16 @@ MODULE_SITE_HOOKS = {
     # the X action's target (800C7AC0: v1 = its kind - 1, a jump table of 49): farmer 2 does not
     # open the whole game's things (runtime/p2.c)
     'GF_FARM': {0x800C41C8: 'quick_bag_filter();', 0x800C1874: 'p2_tick_end();',
-                0x800C7B70: 'R[3] = p2_x_target(R[3]);'},
+                0x800C7B70: 'R[3] = p2_x_target(R[3]);',
+                # the map screen (SELECT) draws the map picture (320x240 in quads: the map and a
+                # row of cloud strips under it) with the jal at 8011ED54 (8011ECC4), and while it
+                # fades in and out with those at 8011E72C, 8011E7C4, 8011E86C, 8011E97C: tagged
+                # with no background to repeat but white sides (-2), so the screen is wide
+                # (runtime/gpu.c, edge_wide)
+                # (set in each jal's delay slot, cleared where it returns, or in the delay slot of
+                # the jal there: a hook on a jal itself isn't emitted)
+                **{a + 4: 'g_menu_tile = -2;' for a in _MAP_DRAWS},
+                **{a + 12 if a != 0x8011ED54 else a + 8: 'g_menu_tile = 0;' for a in _MAP_DRAWS}},
     'saveload': {0x8012EF28: 'R[3] = memcard_slot_menu(R[3], 0);',
                  0x80130678: 'R[3] = memcard_slot_menu(R[3], 1);',
                  0x80131654: 'R[3] = memcard_slot_menu(R[3], 1);',
@@ -486,9 +497,17 @@ MODULE_SITE_HOOKS = {
                  0x8012F33C: 'R[4] = memcard_diary_menu(R[4], 0);',
                  0x80130B40: 'R[5] = memcard_diary_menu(R[5], 1);',
                  0x80131AE0: 'R[5] = memcard_diary_menu(R[5], 1);'},
+    # the title screen's background (800B944C, set at its entry below; one return, delay slot
+    # 800B9988) is a 320x240 meadow, drawn whole at 0,0 and twice more as scrolling see-through
+    # 3x3 grids of it: tagged like the menus' tiles (period 320), so it is widened too. The
+    # Natsume logo before it (800B9324, delay slot of its return 800B9364) is one sprite over a
+    # white screen clear: tagged with no background to repeat (-1), so the screen is shown wide
+    # with the logo keeping its shape
+    'GF_TITLE': {0x800B9988: 'g_menu_tile = 0;', 0x800B9364: 'g_menu_tile = 0;'},
 }
 # ... and at their entry (per overlay too): with autoslot the slot menu is not drawn at all
 MODULE_ENTRY_HOOKS = {'saveload': {0x80136990: 'if (memcard_slot_auto()) { R[2] = 2; return; }'},
+                      'GF_TITLE': {0x800B944C: 'g_menu_tile = 320;', 0x800B9324: 'g_menu_tile = -1;'},
                       # the player's drawing routine (a0 = its position): a second farmer is drawn
                       # by it first (runtime/p2.c)
                       # and its turn is taken once more by a second farmer after the player's;
@@ -759,9 +778,9 @@ class Emitter:
                 cyc += insn_cycles(i)
                 if i.mn == 'syscall':
                     flush()
-                s = emit_simple(i, mod)
+                s = with_hooks(i, emit_simple(i, mod), fi.start, mod).strip()   # hooks on a nop too
                 if s:
-                    P('  ' + with_hooks(i, s, fi.start, mod) + '  /* %08x: %s */' % (a, i))
+                    P('  ' + s + '  /* %08x: %s */' % (a, i))
                 ft = a + 4
                 if i.kind == 'invalid':
                     continue
@@ -775,9 +794,8 @@ class Emitter:
             # control transfer with delay slot
             d = mod.insn(a + 4) if mod.in_code(a + 4) else None
             cyc += 1 + (insn_cycles(d) if d is not None else 1)
-            ds = emit_simple(d, mod) if d is not None and not d.has_delay else ''
+            ds = with_hooks(d, emit_simple(d, mod), fi.start, mod).strip() if d is not None and not d.has_delay else ''
             if ds:
-                ds = with_hooks(d, ds, fi.start, mod)
                 th = MODULE_TEXT_HOOKS.get(mod.name)
                 if th and i.mn == 'jal' and i.target == th[0]:
                     ds += ' ' + th[1]
