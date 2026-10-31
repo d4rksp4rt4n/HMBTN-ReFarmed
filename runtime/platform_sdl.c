@@ -820,17 +820,35 @@ int platform_poll_quit(void) {
         if (ev.type == SDL_QUIT) return 1;
     return 0;
 }
-static bool frame_black;   /* the picture just shown is black (fastload) */
+static bool frame_black;   /* the console's picture is black (fastload) */
 static uint32_t px_changes;    /* gpu_changes() when frame_px was converted */
 static int px_w, px_h;
 static bool px_valid, shown_last;   /* frame_px holds that picture; the last frame was shown */
 
-/* a coarse grid of the picture, all (nearly) black */
-static bool picture_black(const uint32_t *px, int w, int h) {
+/* A coarse grid of the console's picture, all (nearly) black. Read from the native VRAM, not from
+ * the picture on screen: it decides whether the music waits (quick_hold_music), which changes the
+ * game's RAM, so it must come out alike on both co-op PCs and in replays, whatever each one shows
+ * (resolution, in-between pictures, farmer 2's view) or whether it shows anything (headless). */
+static bool display_black(void) {
+    GpuDisplay d;
+    gpu_get_display(&d);
+    if (!d.enabled) return true;
+    int w = d.width, h = d.height;
     if (w <= 0 || h <= 0) return false;
-    for (int y = h / 16; y < h; y += h / 8 + 1)
-        for (int x = w / 32; x < w; x += w / 16 + 1)
-            if ((px[(size_t)y * (size_t)w + (size_t)x] & 0xF0F0F0u) != 0) return false;
+    const uint16_t *vram = gpu_vram();
+    for (int y = h / 16; y < h; y += h / 8 + 1) {
+        const uint16_t *row = vram + (size_t)((d.vram_y + y) & 511) * 1024;
+        for (int x = w / 32; x < w; x += w / 16 + 1) {
+            if (d.is_24bit) {
+                size_t at = (size_t)(d.vram_x & 1023) * 2 + (size_t)x * 3;
+                if (at + 3 > 2048) break;                   /* past the row's end */
+                const uint8_t *p = (const uint8_t *)row + at;
+                if (((p[0] | p[1] | p[2]) & 0xF0) != 0) return false;
+            } else if ((row[(d.vram_x + x) & 1023] & 0x7BDEu) != 0) {   /* a 5-bit channel of 2 or more */
+                return false;
+            }
+        }
+    }
     return true;
 }
 
@@ -910,6 +928,7 @@ static void interp_start(int jobs) {
 void platform_frame(void) {
     uint64_t frame = frame_count();
     dump_ram(frame);
+    frame_black = g_cfg.fastload && display_black();
     int w = 0, h = 0;
     bool shot = g_cfg.screenshot_every && frame >= (uint64_t)g_cfg.screenshot_start &&
                 frame % (uint64_t)g_cfg.screenshot_every == 0;
@@ -1044,7 +1063,6 @@ void platform_frame(void) {
                 same = true;
             } else {
                 gpu_render_display(frame_px, &w, &h);
-                frame_black = g_cfg.fastload && picture_black(frame_px, w, h);
                 px_changes = gpu_changes();
                 px_w = w;
                 px_h = h;
