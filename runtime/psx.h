@@ -174,6 +174,8 @@ __attribute__((noreturn))
 void p2view_abort(void);          /* that run did what it can't (CD, pad, ...): drop it */
 void p2view_events(CPU *c);       /* events_run during that run: none, and a time limit */
 const uint8_t *p2view_ram(void);  /* the RAM the second view's frame was built in (NULL: held) */
+int p2view_scene(void);            /* a scene: both windows show the game's picture */
+int p2_scene(void);
 int p2view_held(void);             /* the last run was dropped: the second window keeps its picture */
 size_t dma_state_size(void);
 void dma_save_state(void *dst);

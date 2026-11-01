@@ -104,6 +104,9 @@ uint16_t g_p2_buttons;          /* farmer 2's pad, set by the frontend each fram
  * but the event goes on in the tick, with the player's struct: it ended there and farmer 2 was led
  * for ever (until placed again). So farmer 2 has the game while it is led, as in its menus. */
 #define LED 0x00800000u
+/* +06C 00008000: something held up in the arms (800C9F20 draws it), 18000000: an item (else the
+ * tool at +0F0) */
+#define HOLDING 0x18008000u
 
 /* the globals the player's turn keeps for itself from tick to tick (found by what farmer 2's turn
  * changed): farmer 2 has its own copy of them too */
@@ -341,6 +344,9 @@ static void place(CPU *c, uint32_t sp) {
     /* farmer 2 keeps its stamina too (see rest) */
     int16_t stamina = half(me, STAMINA), most = half(me, STAMINA_MAX), tired = half(me, TIRED);
     int marks = half(me, STATE_MARKS) & TIRED_MARKS;
+    uint32_t holding;
+    memcpy(&holding, me + 0x6C, 4);
+    holding &= HOLDING;
     if (!placed) rested_day = (uint16_t)MEM_R16(DAY);
     for (uint32_t i = 0; i < PLAYER_SIZE; i++) me[i] = (uint8_t)MEM_R8(PLAYER + i);
     memcpy(my_anims, ANIMS_RAM, ANIMS_SIZE);   /* the player's animation points into it */
@@ -350,6 +356,9 @@ static void place(CPU *c, uint32_t sp) {
         uint32_t f;
         memcpy(&f, me + 0x6C, 4);
         f &= ~LED;
+        /* what farmer 2 holds up stays held (the player's flags said nothing was: the item was
+         * not drawn till the rucksack was opened) */
+        if (placed) f = (f & ~HOLDING) | holding;
         memcpy(me + 0x6C, &f, 4);
     }
     if (placed) {
@@ -873,6 +882,38 @@ uint32_t p2_x_target(uint32_t kind) {
 /* farmer 2 has the game (its talk or menu): the game's window is farmer 2's, the second view the
  * player's */
 int p2_owner(void) { return g_p2_enabled && placed && owner; }
+
+/* a scene: a talk, a menu or an event leading the player that no farmer's button started (the
+ * kappa, an animal that died, a visit): both windows show it. The player's own (its X on a person,
+ * its rucksack: a button just before) stay in the player's window */
+#define SCENE_PRESS 8           /* frames: a talk or menu this soon after the player's button is the player's */
+static int scene, busy_was;
+static uint64_t p1_pressed, scene_seen = ~0ull;
+int p2_scene(void) {
+    if (!g_p2_enabled || !placed) return 0;
+    uint64_t now = frame_count();
+    if (scene_seen == now) return scene;
+    scene_seen = now;
+    if (g_pad_buttons[0] & (PAD_CROSS | PAD_TRIANGLE | PAD_START | PAD_SELECT | PAD_SQUARE)) p1_pressed = now;
+    uint32_t f;
+    if (exchanged) memcpy(&f, me + 0x6C, 4);
+    else f = MEM_R32(FLAGS);
+    int busy = (MEM_R32(MENU_FLAGS) & MENU_OPEN) || (f & LED);
+    if (!busy) scene = 0;
+    else if (!busy_was) scene = !owner && !asked && now - p1_pressed > SCENE_PRESS;
+    if (owner) scene = 0;
+    busy_was = busy;
+    return scene;
+}
+
+/* online, each player hears only its own farmer's menus and talks: the host not farmer 2's, the
+ * guest not the player's (the game stands still in a menu, so its sounds are the menu's); a scene
+ * is both's */
+int g_p2_online;                /* online: this side's role (1 the host, 2 the guest; set by netplay.c) */
+int p2_sfx_quiet(void) {
+    int r = g_p2_online, m = p2_menu();
+    return r && m >= 0 && m == (r == 1) && !p2_scene();
+}
 
 /* a talk or a menu is open: the player's (0) or farmer 2's (1; also the one farmer 2's X just
  * opened), -1 = none. An X that opened nothing is no menu: the windows swapped for that frame

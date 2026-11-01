@@ -461,6 +461,10 @@ ENTRY_HOOKS[0x8002A6E4] = 'if (quick_music_held()) return;'
 # the CD loads of the frame (8002194C, after the farm's frame has built what it draws): not in the
 # farm's frame run once more for farmer 2's window, which can't use the CD (runtime/p2view.c)
 ENTRY_HOOKS[0x8002194C] = 'if (g_view2_run) return;'
+# the sound effects (8001FABC: the sound in a0, keyed on by 800212A8 at once): online, the other
+# farmer's menu sounds are not heard here (runtime/p2.c, spu.c)
+ENTRY_HOOKS[0x8001FABC] = 'g_sfx_quiet = p2_sfx_quiet();'
+SITE_HOOKS[0x8001FAD8] = 'g_sfx_quiet = 0;'
 
 # Hooks in one overlay only (overlays share load addresses). saveload: the three save/load
 # screens ask "Select a MEMORY CARD slot" through the menu at 80136990 (0/1 = slot, -1 =

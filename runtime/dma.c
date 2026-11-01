@@ -68,6 +68,15 @@ static void run_channel(int n) {
         if (ram2) {
             g_gpu_route = 2;
             gpu_list(addr, ram2);
+        } else if (route == 1) {
+            /* the second window keeps its picture (a menu, a talk): the list's loads still reach
+             * its VRAM (the tool chest loads the tools' pictures in its list: farmer 2's window
+             * drew farmer 2's new tool with the old picture in its place) */
+            extern int g_view2_uploads_only;
+            g_gpu_route = 2;
+            g_view2_uploads_only = 1;
+            gpu_list(addr, g_ram);
+            g_view2_uploads_only = 0;
         }
         if (route == 1) g_gpu_route = 1;
         d->madr = 0x00FFFFFF;
