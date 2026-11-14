@@ -226,18 +226,18 @@ static const char *card_name(char *out, size_t n, const char *dir, int b) {
 /* the settings that change what the game does: both sides must use the host's */
 static void settings_line(char *s, size_t n) {
     snprintf(s, n, "fastcd=%d autoslot=%d quickui=%d ws=%d:%d skipscenes=%d textspeed=%d overclock=%d emptybag=%d "
-             "earlycabinet=%d cropwalk=%d fastcard=%d fastload=%d p2=%d cheats=%d:%d:%d:%d:%d:%d split=%d staminabar=%d bulkfood=%d spritehire=%d sturdygreenhouse=%d biggreenhouse=%d buildorder=%d runthrough=%d precisecull=%d spritechair=%d\n", g_cfg.fast_cd, g_cfg.autoslot, g_cfg.quickui,
+             "earlycabinet=%d cropwalk=%d fastcard=%d fastload=%d p2=%d cheats=%d:%d:%d:%d:%d:%d split=%d staminabar=%d bulkfood=%d spritehire=%d sturdygreenhouse=%d biggreenhouse=%d buildorder=%d runthrough=%d precisecull=%d spritechair=%d dualshock=%d\n", g_cfg.fast_cd, g_cfg.autoslot, g_cfg.quickui,
              g_cfg.ws_w, g_cfg.ws_h, g_cfg.skipscenes, g_cfg.textspeed, g_cfg.overclock, g_cfg.emptybag, g_cfg.earlycabinet, g_cfg.cropwalk, g_cfg.fastcard,
              g_cfg.fastload, g_p2_enabled, g_cfg.cheat_money, g_cfg.cheat_stamina, g_cfg.cheat_clock, g_cfg.cheat_bag,
-             g_cfg.cheat_items, g_cfg.cheat_tools, g_split, g_cfg.staminabar, g_cfg.bulkfood, g_cfg.spritehire, g_cfg.sturdygreenhouse, g_cfg.biggreenhouse, g_cfg.buildorder, g_cfg.runthrough, g_cfg.precisecull, g_cfg.spritechair);
+             g_cfg.cheat_items, g_cfg.cheat_tools, g_split, g_cfg.staminabar, g_cfg.bulkfood, g_cfg.spritehire, g_cfg.sturdygreenhouse, g_cfg.biggreenhouse, g_cfg.buildorder, g_cfg.runthrough, g_cfg.precisecull, g_cfg.spritechair, g_cfg.dualshock);
 }
 
 static void apply_settings(const char *s) {
     sscanf(s, "fastcd=%d autoslot=%d quickui=%d ws=%d:%d skipscenes=%d textspeed=%d overclock=%d emptybag=%d "
-           "earlycabinet=%d cropwalk=%d fastcard=%d fastload=%d p2=%d cheats=%d:%d:%d:%d:%d:%d split=%d staminabar=%d bulkfood=%d spritehire=%d sturdygreenhouse=%d biggreenhouse=%d buildorder=%d runthrough=%d precisecull=%d spritechair=%d", &g_cfg.fast_cd, &g_cfg.autoslot, &g_cfg.quickui,
+           "earlycabinet=%d cropwalk=%d fastcard=%d fastload=%d p2=%d cheats=%d:%d:%d:%d:%d:%d split=%d staminabar=%d bulkfood=%d spritehire=%d sturdygreenhouse=%d biggreenhouse=%d buildorder=%d runthrough=%d precisecull=%d spritechair=%d dualshock=%d", &g_cfg.fast_cd, &g_cfg.autoslot, &g_cfg.quickui,
            &g_cfg.ws_w, &g_cfg.ws_h, &g_cfg.skipscenes, &g_cfg.textspeed, &g_cfg.overclock, &g_cfg.emptybag, &g_cfg.earlycabinet, &g_cfg.cropwalk,
            &g_cfg.fastcard, &g_cfg.fastload, &g_p2_enabled, &g_cfg.cheat_money, &g_cfg.cheat_stamina,
-           &g_cfg.cheat_clock, &g_cfg.cheat_bag, &g_cfg.cheat_items, &g_cfg.cheat_tools, &g_split, &g_cfg.staminabar, &g_cfg.bulkfood, &g_cfg.spritehire, &g_cfg.sturdygreenhouse, &g_cfg.biggreenhouse, &g_cfg.buildorder, &g_cfg.runthrough, &g_cfg.precisecull, &g_cfg.spritechair);
+           &g_cfg.cheat_clock, &g_cfg.cheat_bag, &g_cfg.cheat_items, &g_cfg.cheat_tools, &g_split, &g_cfg.staminabar, &g_cfg.bulkfood, &g_cfg.spritehire, &g_cfg.sturdygreenhouse, &g_cfg.biggreenhouse, &g_cfg.buildorder, &g_cfg.runthrough, &g_cfg.precisecull, &g_cfg.spritechair, &g_cfg.dualshock);
     g_p2_demo = 0;
 }
 

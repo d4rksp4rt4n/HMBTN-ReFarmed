@@ -50,6 +50,11 @@ static void gpu_list(uint32_t addr, const uint8_t *ram) {
     g_gp0_addr = 0xFFFFFFFFu;
 }
 
+/* 1: the second GPU was last given the game's own list (another screen than the farm's frame: the
+ * title, menus, town): its window shows the game's picture, which is the same, instead of drawing it
+ * all a second time; it is still given the list's loads, for when the farm's frame is run again */
+int g_view2_mirror;
+
 static void run_channel(int n) {
     DmaChan *d = &ch[n];
     uint32_t chcr = d->chcr;
@@ -65,13 +70,15 @@ static void run_channel(int n) {
         if (route == 1) g_gpu_route = 0;
         gpu_list(addr, g_ram);
         const uint8_t *ram2 = route == 1 ? p2view_ram() : NULL;
-        if (ram2) {
+        int mirror = ram2 == g_ram && !machine_split();
+        if (route == 1) g_view2_mirror = mirror;
+        if (ram2 && !mirror) {
             g_gpu_route = 2;
             gpu_list(addr, ram2);
         } else if (route == 1) {
-            /* the second window keeps its picture (a menu, a talk): the list's loads still reach
-             * its VRAM (the tool chest loads the tools' pictures in its list: farmer 2's window
-             * drew farmer 2's new tool with the old picture in its place) */
+            /* the second window keeps its picture (a menu, a talk) or shows the game's: the list's
+             * loads still reach its VRAM (the tool chest loads the tools' pictures in its list:
+             * farmer 2's window drew farmer 2's new tool with the old picture in its place) */
             extern int g_view2_uploads_only;
             g_gpu_route = 2;
             g_view2_uploads_only = 1;

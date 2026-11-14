@@ -1893,15 +1893,88 @@ int gpu_threads(void)
 #define BAND_SYNC() ((void)0)
 #endif
 
+/* When the VRAM was written, for texpack_box's keys kept: a write count per tile of 64 x 64
+ * halfwords (16 across, 8 down). Drawing commands only count once each (vg_area): they write in
+ * the drawing area, whose tiles get that count when it moves. vg_all: the whole VRAM replaced. */
+static uint64_t vg_gen = 1, vg_all, vg_area;
+static uint64_t vg_tile[8][16];
+
+static void vg_mark_at(int32_t x, int32_t y, int32_t w, int32_t h, uint64_t gen)
+{
+    int32_t tx = (x & 1023) >> 6, ty = (y & 511) >> 6, nx, ny, i, j;
+    if (w <= 0 || h <= 0)
+        return;
+    nx = (((x & 63) + w - 1) >> 6) + 1;
+    ny = (((y & 63) + h - 1) >> 6) + 1;
+    nx = nx > 16 ? 16 : nx;
+    ny = ny > 8 ? 8 : ny;
+    for (j = 0; j < ny; j++)
+        for (i = 0; i < nx; i++)
+            vg_tile[(ty + j) & 7][(tx + i) & 15] = gen;
+}
+
+/* VRAM x.. x + w - 1, y.. y + h - 1 (wrapping) written now */
+static void vg_mark(int32_t x, int32_t y, int32_t w, int32_t h)
+{
+    vg_mark_at(x, y, w, h, ++vg_gen);
+}
+
+/* the drawing area is about to move: what the drawing commands wrote is in its tiles */
+static void vg_area_flush(void)
+{
+    if (vg_area)
+        vg_mark_at(S.clip_x0, S.clip_y0, S.clip_x1 - S.clip_x0 + 1, S.clip_y1 - S.clip_y0 + 1, vg_area);
+}
+
+/* nothing written in the current texture page since gen */
+static int vg_page_clean(uint64_t gen)
+{
+    int32_t pw = S.tex_mode == 0 ? 64 : S.tex_mode == 1 ? 128 : 256;
+    int32_t x0 = (int32_t)S.tp_x, y0 = (int32_t)S.tp_y, i, j;
+    if (vg_all > gen)
+        return 0;
+    for (j = 0; j < 4; j++)
+        for (i = 0; i < pw / 64; i++)
+            if (vg_tile[((y0 >> 6) + j) & 7][((x0 >> 6) + i) & 15] > gen)
+                return 0;
+    /* the drawing commands since, if the area overlaps the page (a page across the edge: say so) */
+    if (vg_area > gen && (x0 + pw > 1024 || y0 + 256 > 512 ||
+                          (S.clip_x0 < x0 + pw && S.clip_x1 >= x0 && S.clip_y0 < y0 + 256 && S.clip_y1 >= y0)))
+        return 0;
+    return 1;
+}
+
 /* Texture packs: the replacement for the w x h texels from u0, v0 (the current texture page and
- * CLUT), found by their key; with g_texdump, they are written out. */
+ * CLUT), found by their key; with g_texdump, they are written out. The key needs every texel read:
+ * the menus' background tiles are drawn again each frame, so the keys are kept (by the box, the
+ * page and the CLUT's colours) for as long as nothing is written in the page. */
+typedef struct {
+    uint64_t gen;                   /* vg_gen when the key was made; 0 = free */
+    const TexImage *img;
+    int32_t u, v, w, h;
+    uint32_t tp_x, tp_y, mode;
+    uint16_t clut[256];
+} BoxKey;
+static BoxKey box_keys[64];
+
 static const TexImage *texpack_box(int32_t u0, int32_t v0, int32_t w, int32_t h)
 {
     static uint16_t box[256 * 256];
     int32_t x, y;
     uint64_t key;
+    BoxKey *e = NULL;
+    uint32_t ncl = S.tex_mode == 0 ? 16u : S.tex_mode == 1 ? 256u : 0u;
     if (S.tw_and_u != 0xFFu || S.tw_or_u || S.tw_and_v != 0xFFu || S.tw_or_v || w < 1 || h < 1 || w > 256 || h > 256)
         return NULL;
+    /* the GPU's own VRAM and CLUT (not a band worker's), and nothing to dump */
+    if (tex_vram == S.vram && tex_clut == S.clut && !g_texdump) {
+        uint32_t m = (uint32_t)u0 * 7u + (uint32_t)v0 * 13u + (uint32_t)w * 3u + (uint32_t)h * 5u + (S.tp_x >> 6) +
+                     (S.tp_y >> 4) + S.tex_mode;
+        e = &box_keys[(m ^ (m >> 6)) & 63u];
+        if (e->gen && e->u == u0 && e->v == v0 && e->w == w && e->h == h && e->tp_x == S.tp_x && e->tp_y == S.tp_y &&
+            e->mode == S.tex_mode && !memcmp(e->clut, tex_clut, ncl * sizeof *tex_clut) && vg_page_clean(e->gen))
+            return e->img;
+    }
     for (y = 0; y < h; y++)
         for (x = 0; x < w; x++)
             box[y * w + x] = (uint16_t)tex_fetch((uint32_t)(u0 + x), (uint32_t)(v0 + y));
@@ -1910,7 +1983,19 @@ static const TexImage *texpack_box(int32_t u0, int32_t v0, int32_t w, int32_t h)
     if (g_texdump)
         texpack_dump(key, w, h, box);
 #endif
-    return g_texpack ? texpack_find(key) : NULL;
+    if (!e)
+        return g_texpack ? texpack_find(key) : NULL;
+    e->gen = vg_gen;
+    e->img = g_texpack ? texpack_find(key) : NULL;
+    e->u = u0;
+    e->v = v0;
+    e->w = w;
+    e->h = h;
+    e->tp_x = S.tp_x;
+    e->tp_y = S.tp_y;
+    e->mode = S.tex_mode;
+    memcpy(e->clut, tex_clut, ncl * sizeof *tex_clut);
+    return e->img;
 }
 
 /* ... for a 2D sprite quad v built at a projected point (tagged t: people, animals, items), by the
@@ -2953,6 +3038,7 @@ static void cmd_fill(const uint32_t *p)
     int32_t h = (int32_t)((p[2] >> 16) & 0x1FFu);
     int32_t x, y;
 
+    vg_mark(x0, y0, w, h);
     for (y = 0; y < h; y++) {
         int32_t dy = (y0 + y) & 511;
         uint16_t *row;
@@ -2992,6 +3078,7 @@ static void cmd_copy(const uint32_t *p)
         w = 0x400;
     if (!h)
         h = 0x200;
+    vg_mark(dx, dy, w, h);
 
     /* The GPU copies through a small line buffer, in chunks of 128 pixels. */
     for (y = 0; y < h; y++) {
@@ -3117,12 +3204,14 @@ static void gp0_env(uint32_t w)
         recalc_texwin();
         break;
     case 0xE3:
+        vg_area_flush();
         S.clip_x0 = (int32_t)(w & 0x3FFu);
         S.clip_y0 = (int32_t)((w >> 10) & 0x3FFu);
         if (S.clip_y0 < band_y0)
             S.clip_y0 = band_y0;
         break;
     case 0xE4:
+        vg_area_flush();
         S.clip_x1 = (int32_t)(w & 0x3FFu);
         S.clip_y1 = (int32_t)((w >> 10) & 0x3FFu);
         if (S.clip_y1 > band_y1 - 1)
@@ -3151,6 +3240,8 @@ static void gp0_execute(const uint32_t *p)
 
     if (op == 0x02 || ((op >> 5) >= 2 && (op >> 5) <= 5))   /* fill, line, rect, copy, transfer */
         BAND_SYNC();
+    if ((op >> 5) >= 1 && (op >> 5) <= 3)      /* polygon, line, rect: in the drawing area */
+        vg_area = ++vg_gen;
     HD_COMMAND(p, op);
 
     switch (op >> 5) {
@@ -3186,6 +3277,7 @@ static void gp0_execute(const uint32_t *p)
         S.wr_cx = S.wr_x;
         S.wr_cy = S.wr_y;
         S.gp0_state = GP0_STATE_VRAM_WRITE;
+        vg_mark(S.wr_x, S.wr_y, S.wr_w, S.wr_h);
         break;
     case 6:
         S.rd_x = (int32_t)(p[1] & 0x3FFu);
@@ -3202,6 +3294,7 @@ static void gp0_execute(const uint32_t *p)
 #if VK_MAIN
         if (g_vk)
             VK(vkr_download(S.rd_x, S.rd_y, S.rd_w, S.rd_h, S.vram));
+        vg_mark(S.rd_x, S.rd_y, S.rd_w, S.rd_h);
 #endif
         break;
     default:
@@ -3283,6 +3376,7 @@ void GPU_REPLAY_RUN(const InterpJob *j, int32_t y0, int32_t y1)
     }
     clock_t t1 = clock();
     memcpy(S.vram, j->vram, sizeof S.vram);
+    vg_all = ++vg_gen;
     memcpy((uint8_t *)&S + STATE_OFS, j->state, sizeof j->state);
     if (S.clip_y0 < band_y0)
         S.clip_y0 = band_y0;
@@ -4090,6 +4184,7 @@ const uint16_t *gpu_vram(void)
         GpuDisplay d;
         gpu_get_display(&d);
         VK(vkr_sync(d.vram_x, d.vram_y, d.width, d.height, S.vram));
+        vg_mark(d.vram_x, d.vram_y, d.width, d.height);
         synced = changes;
     }
 #endif
@@ -4107,6 +4202,7 @@ void gpu_init(void)
     if (!dither_lut_ready)
         build_dither_lut();
     memset(&S, 0, sizeof(S));
+    vg_all = ++vg_gen;
     S.tex_disable_allow = 0;
     S.read_latch = 0;
     S.line_parity = 0;
@@ -4186,6 +4282,7 @@ void gpu_load_state(const void *src)
     if (!dither_lut_ready)
         build_dither_lut();
     memcpy(&S, src, sizeof(S));
+    vg_all = ++vg_gen;
     HD_CLEAR();
     if (TH.buf)
         up_refresh();

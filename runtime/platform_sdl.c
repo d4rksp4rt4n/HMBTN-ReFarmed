@@ -459,7 +459,8 @@ static void save_screenshot(const uint32_t *px, int w, int h, uint64_t frame, in
         int up = g_cfg.upscale > 1 ? g_cfg.upscale : 1;   /* as frame_px (Vulkan: gpu_upscale is 1) */
         if (!px2) px2 = calloc((size_t)1024 * 512 * up * up, sizeof(uint32_t));
         if (!px2) return;
-        if (p2view_swapped() || p2view_scene()) gpu_render_display(px2, &w2, &h2);              /* as the window */
+        extern int g_view2_mirror;
+        if (p2view_swapped() || p2view_scene() || g_view2_mirror) gpu_render_display(px2, &w2, &h2);   /* as the window */
         else if (v2i_shown) { memcpy(px2, v2i_px, (size_t)v2i_w * v2i_h * 4); w2 = v2i_w; h2 = v2i_h; }
         else if (!w2 || !p2view_held()) view2_gpu_render_display(px2, &w2, &h2);
         save_screenshot_as("frame2", px2, w2, h2, frame, wide);
@@ -992,16 +993,37 @@ static int keep2(int slot) {
     return 0;
 #endif
 }
+extern int g_view2_mirror;         /* dma.c: the second window shows the game's picture */
 static void present2(int wide_now) {
-    static uint32_t changes;
+    static uint32_t changes, mirror_changes;
+    static int mirror_shown;
     static int w, h, valid, wide;
     static int gpu;                     /* the picture is the GPU's (Vulkan): 1 slot 1, 2 slot 2 (in-between) */
     static HdPiece pc2[HD_PIECES];      /* the HD pieces of the picture, taken when it was made */
     static int npc2;
     int ww, wh, fresh = win2_due;
     if (!tex2 && !vkp2) return;
+    int was_mirror = mirror_shown;
     win2_due = 0;
-    if (p2view_swapped() || p2view_scene()) {   /* farmer 2 has the game (or a scene): the game's picture */
+    mirror_shown = 0;
+    if (g_view2_mirror && !p2view_swapped() && !p2view_scene()) {
+        /* another screen than the farm's frame: the game's picture, made again when it changes */
+        if (!was_mirror || fresh == 2 || gpu_changes() != mirror_changes) {
+            gpu_render_display(frame2_px, &w, &h);
+            mirror_changes = gpu_changes();
+            npc2 = hd_get(0);
+            memcpy(pc2, hd_pc, (size_t)npc2 * sizeof *pc2);
+            wide = wide_now;
+            valid = 0;
+            fresh = 1;
+            gpu = keep2(1);
+            if (w > 0 && h > 0 && !vkp2) {
+                SDL_Rect src = { 0, 0, w, h };
+                SDL_UpdateTexture(tex2, &src, frame2_px, w * 4);
+            }
+        }
+        mirror_shown = 1;
+    } else if (p2view_swapped() || p2view_scene()) {   /* farmer 2 has the game (or a scene): the game's picture */
         gpu_render_display(frame2_px, &w, &h);
         npc2 = hd_get(0);
         memcpy(pc2, hd_pc, (size_t)npc2 * sizeof *pc2);
@@ -1331,7 +1353,7 @@ void platform_frame(void) {
             view2_gpu_interp_late();
         }
         /* farmer 2's window has in-between pictures of its own, while it shows its own farm frames */
-        int v2 = g_view2 > 0 && !turbo() && !p2view_held();
+        int v2 = g_view2 > 0 && !turbo() && !p2view_held() && !g_view2_mirror;
         if (v2) {
             int up = g_cfg.upscale > 1 ? g_cfg.upscale : 1;
             if (!v2i_px) v2i_px = malloc((size_t)1024 * 512 * up * up * sizeof(uint32_t));
@@ -1346,7 +1368,7 @@ void platform_frame(void) {
          * so frame_black stays as it was */
         static int v2_valid;
         static uint32_t v2_changes;
-        int v2main = g_view2 == 2 && !p2view_swapped() && !p2view_scene();
+        int v2main = g_view2 == 2 && !p2view_swapped() && !p2view_scene() && !g_view2_mirror;
         hd_main_view2 = v2main;
         if (!v2main) v2_valid = 0;
         if (v2main) {
