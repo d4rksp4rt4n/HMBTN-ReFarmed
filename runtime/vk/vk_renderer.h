@@ -45,6 +45,7 @@ void vkr_kick(int x, int y, int dw, int dh);   /* start the picture of that disp
  * or px (w x h, the CPU's: a video), letterboxed at aspect, scaled by scaling (SCALING_*). */
 int  vkr_window(int win, int kind, void *a, void *b);
 void vkr_window_size(int win, int w, int h);
+void vkr_vsync(int win, int on);    /* window win waits for the screen's refresh (FIFO) */
 void vkr_want_pixels(int want);
 int  vkr_keep(int slot);
 void vkr_present(int win, int slot, const uint32_t *px, int w, int h, double aspect, int scaling);

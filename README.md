@@ -261,6 +261,7 @@ what was learned about the game while making them: [docs/GRAPHICS.md](docs/GRAPH
 |  | `fullscreen` | `0` | start in fullscreen |
 |  | `scaling` | `sharp-bilinear` | `sharp-bilinear` = sharp pixels that stay even at any size, `sharp` = nearest pixel, `smooth` = bilinear |
 |  | `aspect43` | `1` | `1` = 4:3 picture like a TV, `0` = square pixels |
+|  | `vsync` | `1` | wait for the screen's refresh (no tearing); on a 60/120/180/240 Hz screen the game keeps time with it (about 1% faster than the console), so the camera moves evenly. At other rates (e.g. 144 Hz) G-Sync/FreeSync makes it even; `0` = don't wait |
 |  | `renderer` | `cpu` | `vulkan` = the graphics card draws the picture (experimental; falls back to `cpu` without Vulkan) |
 |  | `upscale` | `2` | internal resolution 1–4, 1–8 with `renderer = vulkan` (2+ = smoother 3D edges; 4 = 1280×960, 8 = 2560×1920) |
 |  | `drawthreads` | `auto` | threads that draw the upscaled 3D with the CPU renderer, `0`–`4`; `auto` = by processor |
@@ -297,7 +298,7 @@ what was learned about the game while making them: [docs/GRAPHICS.md](docs/GRAPH
 |  | `rumble` | `1` | the controller vibrates where the game shakes a DualShock (the port answers as one, as the original did); `0` = never |
 | `[launcher]` | `language` |  | the launcher's language, `en`, `pt` or `es` (its flags set it); not set: the system's |
 
-Command line options: `--fullscreen`, `--scale N`, `--scaling MODE`, `--renderer cpu|vulkan`, `--upscale N`,
+Command line options: `--fullscreen`, `--no-vsync`, `--scale N`, `--scaling MODE`, `--renderer cpu|vulkan`, `--upscale N`,
 `--drawthreads N`, `--pgxp`, `--crackfix`, `--perspective`, `--no-sprite-depth`, `--widescreen W:H`,
 `--interp` / `--no-interp`, `--texturepack` / `--no-texturepack`, `--portraits` / `--no-portraits`,
 `--dumptextures`, `--fastcd`, `--no-autoslot`, `--card N`, `--overclock N`, `--savedir DIR`,
@@ -463,6 +464,9 @@ Created locally and ignored by git: `deps/` (toolchain), `extract/`, `generated/
   ZeroTier makes easy.
 - **Vulkan renderer**: without a working Vulkan driver the game falls back to the CPU
   renderer (the log says so). Update the graphics driver, or use `renderer = cpu`.
+- **Camera moves unevenly**: the game makes 59.29 pictures a second, which a 144 Hz screen can only
+  show unevenly. Turn on G-Sync/FreeSync (for windowed and full screen: the game's fullscreen is a
+  borderless window), or set the screen to 60 or 120 Hz, where `vsync` keeps the game in step with it.
 - **Slow at high resolution**: the CPU renderer draws everything on the processor; lower
   `upscale`, or try `renderer = vulkan`.
 - **No sound**: the game opens the default audio device when it starts and picks up a

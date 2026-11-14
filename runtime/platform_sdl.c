@@ -32,6 +32,12 @@ static int audio_ok;
 static uint32_t *frame_px;
 static int fullscreen;
 static uint64_t perf_next;
+/* vsync: the game's window waits for the screen's refresh. On a screen of about 60k Hz (60, 120, 180,
+ * 240) the game keeps time with it, a VBlank every vsync_k refreshes, each shown alike; on others
+ * (vsync_k 0) the emulated clock keeps its 59.29 Hz and G-Sync/FreeSync shows each picture as it comes.
+ * frame_hz: VBlanks a second as they come while keeping time with the screen (the sound follows it). */
+static int vsync_k;
+static double vsync_hz, frame_hz = 59.2898;
 static int shot_request;
 /* the second view (--p2 on one PC, p2view.c): a second window, following farmer 2 */
 static SDL_Window *win2;
@@ -583,6 +589,16 @@ int platform_init(void) {
         SDL_RaiseWindow(win);
     }
     update_title();
+    {
+        SDL_DisplayMode m;
+        if (g_cfg.vsync && SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(win), &m) == 0 && m.refresh_rate > 0) {
+            vsync_hz = m.refresh_rate;
+            for (int k = 1; k <= 4 && !vsync_k; k++)
+                if (fabs(vsync_hz / k - 60.0) < 1.6) vsync_k = k;
+            LOGI("vsync: %.0f Hz screen, %s", vsync_hz, vsync_k ? "the game keeps time with it" : "the game's own 59.29 Hz");
+        }
+    }
+    SDL_SetHint(SDL_HINT_RENDER_VSYNC, g_cfg.vsync ? "1" : "0");   /* the game's window only (farmer 2's never waits) */
     ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     if (!ren) ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
     if (!ren) { fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError()); return 1; }
@@ -632,6 +648,7 @@ void platform_vulkan(void) {
         tex = NULL;
         ren = NULL;
         vkp = 1;
+        vkr_vsync(0, g_cfg.vsync);
     }
     if (vkp && vk_window(1, win2)) {
         if (tex2) SDL_DestroyTexture(tex2);
@@ -679,7 +696,29 @@ void platform_audio_push(const int16_t *stereo, int frames) {
         }
         if (wav_file) { fwrite(stereo, 4, (size_t)frames, wav_file); wav_frames += (uint32_t)frames; }
     }
-    if (audio_ok && !g_cfg.headless && !g_cfg.unthrottled) SDL_QueueAudio(audio, stereo, (Uint32)frames * 4);
+    if (!audio_ok || g_cfg.headless || g_cfg.unthrottled) return;
+    if (!vsync_k) { SDL_QueueAudio(audio, stereo, (Uint32)frames * 4); return; }
+    /* keeping time with the screen, the game runs at its rate (60 Hz: 1.2% fast): the sound is
+     * resampled to the sound card's rate, and nudged by up to 1% to keep ~4 frames queued */
+    static int16_t prev[2], out[8192 * 2];
+    static double pos = -1.0;           /* where the next sample is, from prev (-1) through stereo */
+    double queued = (double)SDL_GetQueuedAudioSize(audio) / 4.0 / 735.0;
+    double nudge = 0.002 * (4.0 - queued);
+    double step = frame_hz / 59.2898 * (1.0 - (nudge > 0.01 ? 0.01 : nudge < -0.01 ? -0.01 : nudge));
+    int n = 0;
+    while (pos < frames - 1 && n < 8192) {
+        int i = (int)floor(pos);
+        double f = pos - i;
+        for (int c = 0; c < 2; c++) {
+            int a = i < 0 ? prev[c] : stereo[i * 2 + c], b = stereo[(i + 1) * 2 + c];
+            out[n * 2 + c] = (int16_t)lrint(a + (b - a) * f);
+        }
+        n++;
+        pos += step;
+    }
+    pos -= frames;
+    if (frames > 0) { prev[0] = stereo[frames * 2 - 2]; prev[1] = stereo[frames * 2 - 1]; }
+    SDL_QueueAudio(audio, out, (Uint32)n * 4);
 }
 
 /* ------------------------------------------------------------------ per-frame */
@@ -1186,7 +1225,11 @@ static void throttle(void) {
     if (turbo()) { perf_next = SDL_GetPerformanceCounter(); if (audio_ok) SDL_ClearQueuedAudio(audio); return; }
     uint64_t freq = SDL_GetPerformanceFrequency();
     double period = (double)freq / 59.2898;          /* NTSC PS1 frame rate */
-    if (audio_ok) {
+    if (vsync_k) {
+        /* the screen's refresh keeps time (the window's present waits for it): this only stops the
+         * game running away where it doesn't wait (a minimized window) */
+        period = (double)freq * vsync_k / (vsync_hz * 1.03);
+    } else if (audio_ok) {
         /* keep ~3-5 frames of audio queued: nudge the frame period by up to 1% so the
            emulated clock follows the sound card's clock without audible gaps */
         double queued = (double)SDL_GetQueuedAudioSize(audio) / 4.0 / 735.0;   /* in frames */
@@ -1257,7 +1300,7 @@ void platform_frame(void) {
     bool shot = g_cfg.screenshot_every && frame >= (uint64_t)g_cfg.screenshot_start &&
                 frame % (uint64_t)g_cfg.screenshot_every == 0;
     /* at full speed only every 4th frame is shown: the rest would only slow it down */
-    bool shown = !g_cfg.headless && (!turbo() || (frame & 3) == 0);
+    bool shown = !g_cfg.headless && (!turbo() || (frame & (g_cfg.vsync ? 15 : 3)) == 0);   /* vsync: each waits */
     if (!g_cfg.headless) {
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
@@ -1435,6 +1478,16 @@ void platform_frame(void) {
 
     if (shot_request) { save_screenshot(frame_px, w, h, frame, wide); shot_request = 0; }
     if (shown && !keep) present(w, h, wide, same && shown_last);
+    /* keeping time with a 120 Hz (or faster) screen: the picture again, a VBlank every vsync_k refreshes */
+    for (int i = 1; i < vsync_k && shown && !keep && !turbo(); i++) present(w, h, wide, true);
+    if (vsync_k) {      /* the rate the screen's refresh keeps (the sound follows it): mean interval of the pictures */
+        static uint64_t last;
+        static double ms = 1000.0 / 59.2898;
+        uint64_t f = SDL_GetPerformanceFrequency(), t = SDL_GetPerformanceCounter();
+        double dt = last ? (double)(t - last) * 1000.0 / (double)f : 0;
+        if (dt > 0 && dt < 3 * ms) { ms += (dt - ms) * 0.01; frame_hz = 1000.0 / ms; }
+        last = shown && !keep && !turbo() ? t : 0;
+    }
     if (shown && win2) present2(wide);
     shown_last = shown;
     if (g_cfg.max_frames && frame >= (uint64_t)g_cfg.max_frames) g_quit = 1;

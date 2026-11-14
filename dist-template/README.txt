@@ -32,6 +32,9 @@ the game, a commented file you can also edit by hand.
 * Graphics: internal resolution 2-4 (up to 8 with the Vulkan renderer), precise 3D (PGXP) without
   wobbling polygons, perspective-correct textures, widescreen (16:9, 16:10, 21:9,
   title screen and menus included) and a camera that moves at 60 fps (F9 compares).
+* Vsync (on): no tearing, and on a 60 or 120 Hz screen the game keeps time with it, so the camera
+  moves evenly. A 144 Hz screen shows 59.29 pictures a second unevenly: turn on G-Sync/FreeSync
+  (for windowed and full screen), or set the screen to 60 or 120 Hz.
 * The CPU renderer draws the picture with the processor, so no graphics card is needed; the
   resolution is what costs. On a slower PC pick the quick setup for its number of cores (2 cores:
   resolution 2, 4 cores: 3); every effect stays on. "renderer = vulkan" (experimental)
