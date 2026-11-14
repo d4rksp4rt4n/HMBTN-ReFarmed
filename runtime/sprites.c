@@ -36,9 +36,10 @@
 #define MAP_NOW 0x800A046Cu        /* the map loaded (word): the farm is 20 + the season (the area's
                                     * number, 800A036A, is not always 2 on the farm) */
 #define FARM_MAP 20
-#define AREA_KIND 0x800A0466u      /* halfword: 5 the barn and the coop (where the animals' sprites
+#define AREA_KIND 0x800A0466u      /* halfword: 5 the barn, 4 the coop (where the animals' sprites
                                     * work), 40 the sprites' house, 1 the farm */
 #define ANIMALS_KIND 5
+#define COOP_KIND 4
 #define FARM_KIND 1
 #define GREENHOUSE_KIND 6          /* the greenhouse (the waterers work its beds there too) */
 #define HOUR 0x80070CF8u           /* halfword: the hour */
@@ -352,6 +353,11 @@ static int on_farm(void) {
     return MEM_R16(AREA_KIND) == FARM_KIND || MEM_R32(MAP_NOW) - FARM_MAP <= 3u;
 }
 
+/* the barn or the coop (a sprite's +48 there is the same kind) */
+static int animals_kind(uint32_t kind) {
+    return kind == ANIMALS_KIND || kind == COOP_KIND;
+}
+
 static int in_greenhouse(void) {
     return MEM_R16(AREA_KIND) == GREENHOUSE_KIND;
 }
@@ -360,7 +366,7 @@ static int in_greenhouse(void) {
  * whether to do another job */
 void sprite_talk_text(CPU *c) {
     uint32_t rec = c->r[18];
-    if (g_view2_run || !g_cfg.spritehire || (!on_farm() && !in_greenhouse() && MEM_R16(AREA_KIND) != ANIMALS_KIND) || MEM_R16(rec + 180) < 1
+    if (g_view2_run || !g_cfg.spritehire || (!on_farm() && !in_greenhouse() && !animals_kind(MEM_R16(AREA_KIND))) || MEM_R16(rec + 180) < 1
         || !(MEM_R16(rec + 184) & 7u)) return;
     job_sprite = rec;
     job_menu = 1;
@@ -399,7 +405,7 @@ void sprite_menu_answered(CPU *c, uint32_t answer) {
             MEM_W16(rec + 190, 0);
             game_call(c, START_ACTION, rec, 11);
         }
-    } else if (!on_farm() && answer != 3 && MEM_R16(rec + 48) == ANIMALS_KIND) {
+    } else if (!on_farm() && answer != 3 && animals_kind(MEM_R16(rec + 48))) {
         MEM_W16(rec + 48, FARM_KIND);
         MEM_W16(rec + 184, (uint16_t)(MEM_R16(rec + 184) & ~0x40u));
         MEM_W16(rec + 190, 0);
