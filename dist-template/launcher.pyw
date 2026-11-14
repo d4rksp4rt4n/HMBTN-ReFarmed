@@ -77,6 +77,7 @@ OPTIONS = [
     ('video', 'video', 'pgxp', 'bool'),
     ('video', 'video', 'perspective', 'bool'),
     ('video', 'video', 'interp', 'bool'),
+    ('video', 'video', 'vsync', 'bool:1'),
     ('video', 'video', 'texturepack', 'bool'),
     ('video', 'video', 'portraits', 'bool'),
     ('video', 'video', 'dumptextures', 'bool'),
@@ -194,6 +195,9 @@ TEXT = {
         'scaling': ('Scaling to the screen', 'sharp-bilinear: sharp, even pixels (recommended). sharp: plain '
                     'nearest pixel. smooth: soft.'),
         'aspect43': ('4:3 picture', 'Like a CRT TV. Off: square pixels.'),
+        'vsync': ('Vsync', "Waits for the screen's refresh: no tearing. On a 60 or 120 Hz screen the game keeps "
+                  'time with it, so the camera moves evenly (about 1% faster than the console). At 144 Hz and '
+                  'other rates, G-Sync or FreeSync makes it even.'),
         'game_pt': ('Game text in Portuguese', 'The Brazilian Portuguese fan translation by GabriPires. A language built before is switched at once; the first time, Play builds the game in it from your disc (about a minute: it downloads the translation and applies it to a copy of your disc image, in disc-pt). For online co-op both need the same language.'),
         'disc': ('Game disc', 'Your copy of the game: a .cue/.bin image or a .pak data pack. Empty: the disc '
                  'folder or HarvestMoonBTN.pak next to the game.'),
@@ -282,6 +286,9 @@ TEXT = {
         'scaling': ('Ajuste à tela', 'sharp-bilinear: pixels nítidos e iguais (recomendado). sharp: pixel mais '
                     'próximo. smooth: suave.'),
         'aspect43': ('Imagem 4:3', 'Como numa TV de tubo. Desligado: pixels quadrados.'),
+        'vsync': ('Vsync', 'Espera a atualização da tela: sem cortes na imagem. Numa tela de 60 ou 120 Hz o jogo '
+                  'acompanha o ritmo dela, e a câmera se move por igual (cerca de 1% mais rápido que o console). '
+                  'Em 144 Hz e outras taxas, o G-Sync ou FreeSync deixa por igual.'),
         'game_pt': ('Texto do jogo em português', 'A tradução de fã para português do Brasil, feita por GabriPires. Uma língua já montada troca na hora; na primeira vez, o Jogar monta o jogo nela a partir do seu disco (cerca de um minuto: baixa a tradução e aplica numa cópia da sua imagem do disco, na pasta disc-pt). No coop online os dois precisam da mesma língua.'),
         'disc': ('Disco do jogo', 'Sua cópia do jogo: imagem .cue/.bin ou pacote .pak. Vazio: a pasta disc ou '
                  'o HarvestMoonBTN.pak ao lado do jogo.'),
@@ -370,6 +377,9 @@ TEXT = {
         'scaling': ('Ajuste a la pantalla', 'sharp-bilinear: píxeles nítidos y parejos (recomendado). sharp: '
                     'píxel más cercano. smooth: suave.'),
         'aspect43': ('Imagen 4:3', 'Como en un televisor de tubo. Apagado: píxeles cuadrados.'),
+        'vsync': ('Vsync', 'Espera el refresco de la pantalla: sin cortes en la imagen. En una pantalla de 60 o '
+                  '120 Hz el juego sigue su ritmo, y la cámara se mueve de forma pareja (cerca de 1% más rápido '
+                  'que la consola). A 144 Hz y otras tasas, G-Sync o FreeSync la hace pareja.'),
         'game_pt': ('Texto del juego en portugués', 'La traducción de fans al portugués de Brasil, de GabriPires. Un idioma ya construido cambia al instante; la primera vez, Jugar construye el juego en él desde tu disco (cerca de un minuto: descarga la traducción y la aplica a una copia de tu imagen del disco, en disc-pt). En el coop online los dos necesitan el mismo idioma.'),
         'disc': ('Disco del juego', 'Tu copia del juego: imagen .cue/.bin o paquete .pak. Vacío: la carpeta disc '
                  'o el HarvestMoonBTN.pak junto al juego.'),

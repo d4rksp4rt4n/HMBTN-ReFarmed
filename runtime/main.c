@@ -204,6 +204,7 @@ static void set_option(const char *key, const char *val) {
     else if (!strcmp(key, "depthtest")) g_cfg.depthtest = atoi(val);
     else if (!strcmp(key, "precisecull")) g_cfg.precisecull = atoi(val);
     else if (!strcmp(key, "interp")) g_cfg.interp = atoi(val);
+    else if (!strcmp(key, "vsync")) g_cfg.vsync = atoi(val);
     else if (!strcmp(key, "texturepack")) g_cfg.texturepack = atoi(val);
     else if (!strcmp(key, "dumptextures")) g_cfg.dumptextures = atoi(val);
     else if (!strcmp(key, "portraits")) g_cfg.portraits = atoi(val);
@@ -329,6 +330,7 @@ static void usage(void) {
     printf("Harvest Moon: Back to Nature - native port\n"
            "usage: hmbtn [options] [HarvestMoonBTN.pak|disc.cue|disc.bin]\n"
            "  --fullscreen          start in fullscreen (F11 toggles)\n"
+           "  --no-vsync            don't wait for the screen's refresh (vsync is on by default)\n"
            "  --scale N             initial window scale (default 3)\n"
            "  --upscale N           internal resolution 1..4, 1..8 with Vulkan (default 1 = 320x240)\n"
            "  --drawthreads N       threads drawing the upscaled 3D, 0..4 (default: by processor)\n"
@@ -424,6 +426,7 @@ int main(int argc, char **argv) {
     find_exe_dir(argv[0]);
     g_cfg.scale = 3;
     g_cfg.aspect_4_3 = 1;
+    g_cfg.vsync = 1;
     g_cfg.allow_fast_forward = 1;
     g_cfg.autoslot = 1;
     g_cfg.fastcard = 1;
@@ -466,6 +469,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-crackfix")) g_cfg.crackfix = 0;
         else if (!strcmp(a, "--interp")) g_cfg.interp = 1;
         else if (!strcmp(a, "--no-interp")) g_cfg.interp = 0;
+        else if (!strcmp(a, "--vsync")) g_cfg.vsync = 1;
+        else if (!strcmp(a, "--no-vsync")) g_cfg.vsync = 0;
         else if (!strcmp(a, "--texturepack")) g_cfg.texturepack = 1;
         else if (!strcmp(a, "--no-texturepack")) g_cfg.texturepack = 0;
         else if (!strcmp(a, "--portraits")) g_cfg.portraits = 1;

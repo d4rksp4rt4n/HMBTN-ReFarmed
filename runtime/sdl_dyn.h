@@ -20,7 +20,8 @@
     X(SDL_CreateSemaphore) X(SDL_CreateThread) X(SDL_SemPost) X(SDL_SemTryWait) X(SDL_SemWait) \
     X(SDL_JoystickGetDeviceInstanceID) X(SDL_SetThreadPriority) X(SDL_GetDisplayUsableBounds) \
     X(SDL_RaiseWindow) X(SDL_SetWindowPosition) X(SDL_GetWindowID) \
-    X(SDL_DestroyRenderer) X(SDL_GetWindowWMInfo) X(SDL_Vulkan_GetDrawableSize)
+    X(SDL_DestroyRenderer) X(SDL_GetWindowWMInfo) X(SDL_Vulkan_GetDrawableSize) \
+    X(SDL_GetCurrentDisplayMode) X(SDL_GetWindowDisplayIndex)
 
 #define SDL_DYN_DECL(f) static __typeof__(&f) dyn_##f;
 SDL_DYN_FUNCS(SDL_DYN_DECL)
@@ -45,6 +46,8 @@ static const char *sdl_dyn_load(void) {
 #define SDL_SetWindowPosition dyn_SDL_SetWindowPosition
 #define SDL_GetWindowID dyn_SDL_GetWindowID
 #define SDL_DestroyRenderer dyn_SDL_DestroyRenderer
+#define SDL_GetCurrentDisplayMode dyn_SDL_GetCurrentDisplayMode
+#define SDL_GetWindowDisplayIndex dyn_SDL_GetWindowDisplayIndex
 #define SDL_GetWindowWMInfo dyn_SDL_GetWindowWMInfo
 #define SDL_Vulkan_GetDrawableSize dyn_SDL_Vulkan_GetDrawableSize
 #define SDL_CloseAudioDevice dyn_SDL_CloseAudioDevice

@@ -1270,6 +1270,7 @@ static struct Swap
 	ImageHandle hd[2], hd_pre[2];   /* with HD images: the picture at the window's size; its prescale */
 	int frame = 0;
 	bool stale = false;
+	bool vsync = false;         /* wait for the screen's refresh (FIFO; vkr_vsync) */
 	double ms = 0;
 	unsigned n = 0;
 } swaps[2];
@@ -1319,6 +1320,13 @@ extern "C" int vkr_window(int win, int kind, void *a, void *b)
 	return 1;
 }
 
+extern "C" void vkr_vsync(int win, int on)
+{
+	if (swaps[win].vsync != !!on)
+		swaps[win].stale = true;    /* the next vkr_present makes the swapchain again */
+	swaps[win].vsync = !!on;
+}
+
 extern "C" void vkr_window_size(int win, int w, int h)
 {
 	swaps[win].size = { uint32_t(w > 0 ? w : 0), uint32_t(h > 0 ? h : 0) };
@@ -1350,11 +1358,17 @@ static bool make_chain(Swap &s)
 	vkGetPhysicalDeviceSurfacePresentModesKHR(gpu, s.surface, &n, nullptr);
 	std::vector<VkPresentModeKHR> modes(n);
 	vkGetPhysicalDeviceSurfacePresentModesKHR(gpu, s.surface, &n, modes.data());
-	/* the game paces itself (the emulated video clock): no waiting for the screen's refresh */
+	/* vsync: FIFO, each picture shown at a refresh (with G-Sync/FreeSync, at once). Else no waiting:
+	 * IMMEDIATE first. MAILBOX keeps the screen at its own rate and shows the newest picture at each
+	 * refresh, which also turns variable refresh off: uneven with 59.29 pictures a second */
 	VkPresentModeKHR mode = VK_PRESENT_MODE_FIFO_KHR;
-	for (VkPresentModeKHR want : { VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_MAILBOX_KHR })
-		if (std::find(modes.begin(), modes.end(), want) != modes.end())
-			mode = want;
+	if (!s.vsync)
+		for (VkPresentModeKHR want : { VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_MAILBOX_KHR })
+			if (std::find(modes.begin(), modes.end(), want) != modes.end())
+			{
+				mode = want;
+				break;
+			}
 	VkSwapchainCreateInfoKHR ci = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 	ci.surface = s.surface;
 	ci.minImageCount = std::max(caps.minImageCount, 2u);
@@ -1378,6 +1392,9 @@ static bool make_chain(Swap &s)
 		return false;
 	if (s.chain)
 		vkDestroySwapchainKHR(dev, s.chain, nullptr);
+	else
+		log_cb(RETRO_LOG_INFO, "window %d: %s", int(&s - swaps), mode == VK_PRESENT_MODE_FIFO_KHR ? "FIFO (vsync)" :
+		       mode == VK_PRESENT_MODE_IMMEDIATE_KHR ? "IMMEDIATE" : "MAILBOX");
 	s.chain = chain;
 	s.extent = caps.currentExtent;
 	vkGetSwapchainImagesKHR(dev, chain, &n, nullptr);
