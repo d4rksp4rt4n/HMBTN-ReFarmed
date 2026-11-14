@@ -2598,6 +2598,10 @@ static void draw_sprite_scaled(int32_t x0, int32_t y0, int32_t w, int32_t h, uin
             col_ix[px - X0] = ix < 0 ? 0 : ix >= tex_rep->w ? tex_rep->w - 1 : ix;
         }
     }
+    /* the texels of a texel row, fetched and tinted once (each covers about n x n target pixels):
+     * bit 31 drawn, bit 30 see-through, low 16 bits the colour */
+    static uint32_t row_px[1024];
+    int32_t row_v = -1;
     for (py = Y0; py < Y1; py++) {
         float fy = (((float)py + 0.5f) / fn - (float)cy - t->y) / sy + (float)(cy - y0);
         int32_t ty = (int32_t)floorf(fy), iy = tex_rep ? (int32_t)(fy * rep_sv) : 0;
@@ -2607,6 +2611,26 @@ static void draw_sprite_scaled(int32_t x0, int32_t y0, int32_t w, int32_t h, uin
             continue;
         ty = ty < 0 ? 0 : ty >= h ? h - 1 : ty;
         vr = (uint8_t)(v0 + (uint32_t)(ty * v_inc));
+        if (tex && !rrow) {
+            if (vr != row_v) {
+                for (int32_t i = 0; i < w; i++) {
+                    uint32_t tt = tex_fetch((uint8_t)(us + (uint32_t)(i * u_inc)), vr);
+                    row_px[i] = !tt ? 0 : 0x80000000u | (tt & 0x8000u ? 0x40000000u : 0) |
+                                          (raw ? (tt & 0x7FFFu) : modulate(tt, r, g, b, NO_DITHER_LUT));
+                }
+                row_v = vr;
+            }
+            /* plot_t: the tags and the under flag read once for the row */
+            uint16_t *tg = TH.tag, tv = cur_tag;
+            const int und = under;
+            for (px = X0; px < X1; px++) {
+                uint32_t c = row_px[col_tx[px - X0]];
+                if (c)
+                    plot_t(&TH, (uint32_t)px, (uint32_t)py, c & 0xFFFFu, c & 0x40000000u ? 0x8000u : 0,
+                           c & 0x40000000u ? blend : -1, tg, tv, und);
+            }
+            continue;
+        }
         for (px = X0; px < X1; px++) {
             int32_t tx = col_tx[px - X0];
             if (tex) {
