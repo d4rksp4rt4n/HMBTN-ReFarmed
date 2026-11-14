@@ -598,7 +598,11 @@ int platform_init(void) {
             LOGI("vsync: %.0f Hz screen, %s", vsync_hz, vsync_k ? "the game keeps time with it" : "the game's own 59.29 Hz");
         }
     }
-    SDL_SetHint(SDL_HINT_RENDER_VSYNC, g_cfg.vsync ? "1" : "0");   /* the game's window only (farmer 2's never waits) */
+    /* SDL's renderer waits for the refresh only while the game keeps time with it (the wait is the
+     * clock then). Otherwise the emulated clock has waited already: waiting again, up to a refresh,
+     * left the CPU renderer short of time at 144 Hz (slowdowns, crackling sound). G-Sync/FreeSync
+     * still shows each picture as it comes. The game's window only: farmer 2's never waits */
+    SDL_SetHint(SDL_HINT_RENDER_VSYNC, vsync_k ? "1" : "0");
     ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     if (!ren) ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
     if (!ren) { fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError()); return 1; }
