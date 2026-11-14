@@ -1797,7 +1797,7 @@ def main():
         # variables (its files are gone by then: "Failed to load Python DLL")
         env = dict(os.environ, PYINSTALLER_RESET_ENVIRONMENT='1')
         subprocess.Popen([EXE, *args], cwd=HERE, env=env)
-        root.destroy()
+        # the launcher stays open beside the game (the co-op's settings, another start)
 
     def coop_port():
         p = val('coop_port')
