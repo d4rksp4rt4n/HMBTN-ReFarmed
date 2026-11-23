@@ -17,6 +17,18 @@ gameplay mods and a launcher that builds the game from your disc and keeps it up
 > project: the build reads the game from **your own disc image** and creates the native
 > version on your computer. See [Why you need your own copy](#why-you-need-your-own-copy).
 
+**Game languages** (the launcher's **Game language** page; each is put onto a copy of your disc,
+your USA disc stays as it is):
+
+| Language | What is translated | Where it comes from |
+|---|---|---|
+| English | everything | the original USA disc |
+| Portuguese (Brazil) | dialogue, menus and items | fan translation by GabriPires, downloaded the first time |
+| Spanish | dialogue (menus and items stay in English) | fan translation, with its own font (ñ, accents), downloaded the first time |
+| Indonesian | dialogue and most menus (some minigames stay in English) | fan translation (Indonesian edition of the Kucing NPC mod), downloaded the first time |
+| German | dialogue (menus and items stay in English) | your own European disc (SLES-02781, Rev 1) |
+| Japanese | dialogue, menus and items, with the Japanese font | your own Japanese disc (SLPS-02489, Rev 1) |
+
 - Plays like the original: same game logic, same graphics, music and timing (NTSC, 59.29 fps)
 - **Graphics:** internal resolution 2–4× (up to 8× with the Vulkan renderer), precise 3D
   vertices (PGXP) without the holes they open, perspective-correct textures, 2D objects that
