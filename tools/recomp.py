@@ -669,6 +669,13 @@ MODULE_SITE_HOOKS['GF_FARM'].update({
 # is drawn (800FA4F4 called from 800FA1B0), the names when its day's events are shown (8002261C
 # called from 800FA4C0) and once that text is loaded (80022A94, below)
 MODULE_SITE_HOOKS['GF_FARM'][0x800FA1B8] = 'birthday_marks(c);'
+# Widescreen: what is drawn above a character, at its projected point raised by a few pixels, a
+# point never projected itself, takes the anchor below it (g_above_call): a character's balloon
+# ("!", "...", the heart; 80107E2C, called by the people's, animals' and player's routines with
+# y - 20 ... y - 50, building it with the jal at 80107EF0) and the hand pointing at the player
+# hidden behind a wall ("Here!", the player's routine 800CA24C, jal at 800CA340, y - 50).
+MODULE_SITE_HOOKS['GF_FARM'].update({0x80107EF4: 'g_above_call = 1;', 0x80107EF8: 'g_above_call = 0;',
+                                     0x800CA344: 'g_above_call = 1;', 0x800CA348: 'g_above_call = 0;'})
 ENTRY_HOOKS[0x8002261C] = 'birthday_text_asked(c);'
 MODULE_ENTRY_HOOKS['GF_FARM'][0x8010E6E8] = 'sprite_menu(c);'
 MODULE_ENTRY_HOOKS['GF_FARM'][0x8010CB6C] = 'sprite_night(c);'   # each sprite's night

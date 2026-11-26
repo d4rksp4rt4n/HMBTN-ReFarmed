@@ -322,6 +322,14 @@ with the squeezed coordinates, so it draws what a wider screen would show.
   player, and with PGXP it moves smoothly with the player instead of in whole pixels. Put down
   or thrown, the item is drawn by another routine at a point it projects, so it takes that
   point's anchor, like the objects lying in the field.
+- **Balloons and the "Here!" hand keep their shape.** A character's balloon (the hearts, "!",
+  arrows; 80107E2C, called by the routines of the people, the animals and the player) and the
+  hand pointing at the player hidden behind a wall ("Here!", the player's routine, jal at
+  800CA340) are drawn with the sprite builder at the character's projected point raised by 20 to
+  50 pixels, a point that was never projected itself. Its anchor wasn't found, so they were drawn
+  untagged, a third too wide at 16:9 (more at 21:9). While these two calls build, the builder
+  takes the nearest anchor straight below the point (same x, up to 64 pixels lower): the
+  character's, so the balloon is squeezed (and depth scaled) about the character like its sprite.
 - The PGXP positions and the depth scale use the squeezed coordinates (the ground scale
   undoes the squeeze to get the view ray).
 

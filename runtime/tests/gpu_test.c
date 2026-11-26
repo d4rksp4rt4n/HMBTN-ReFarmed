@@ -1141,6 +1141,16 @@ static void test_pgxp_sprite(void)
     g_pgxp = g_sprite_tags = 1;
     sprite_scene(1, xy(110, 120), 1.0f, 0.0f);
     CHECK(g_sprite_on, "anchor found");
+    /* a balloon 40 pixels above the anchor (100,100) finds it only while g_above_call is set,
+     * and only straight below */
+    gpu_sprite_begin(100, 60);
+    CHECK(!g_sprite_on, "raised point: no anchor");
+    g_above_call = 1;
+    gpu_sprite_begin(100, 60);
+    CHECK(g_sprite_on, "balloon: the anchor below");
+    gpu_sprite_begin(101, 60);
+    CHECK(!g_sprite_on, "balloon: not beside it");
+    g_above_call = 0;
     CHECK(!memcmp(ref, gpu_vram(), sizeof ref), "sprite shift: native VRAM unchanged");
     gpu_render_display(out, &w, &h);
     for (y = 120; y < 136; y++)
