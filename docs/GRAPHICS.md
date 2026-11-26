@@ -439,6 +439,21 @@ title screen's pictures.
    RGBA PNG in `textures/`, under the dump's name. Leave out what you don't redraw.
 3. Play with `texturepack = 1`. The images are read when the game starts; the log says how many.
 
+**One sprite, several textures.** A replacement covers one texture, and the game often draws what
+looks like one sprite from several: each animation frame is its own (Karen walking: about five),
+the shipping bin on the ground (36×36, page 704,0) is another picture than the bin the player
+carries (32×32, page 960,0), and a wife in the house is drawn from a sheet of her own. Each needs
+its own image, or the sprite switches between the new and the original look as it moves.
+
+**Original art fixes** (`artfix = 1`, the default; `--no-artfix`). Some palettes on the disc are
+broken: the bin on the ground has a blue entry (`c822`) and a navy one in its weave's holes, which
+the carried bin has transparent. When an upload puts such a palette in VRAM (all 16 colours equal
+to one in gpu.c's `art_fixes`), its broken entries are made transparent before anything draws with
+it, in both renderers. The texture's key changes with it (the bin on the ground: from
+`048a1ea1b87622a5` to the fixed picture's). Married Karen in the house cannot be mended this way:
+that sheet is drawn anew with fewer colours (no white: eyes and shirt), its white pixels share an
+entry with her skin.
+
 Redrawn dialogue portraits (the 80×80 faces in conversations) are a pack of their own in
 `textures/portraits/`, same names and format, switched with `portraits = 1` (`--portraits`; launcher:
 Video → Redrawn portraits), so they can be turned off without turning off the rest of the pack.

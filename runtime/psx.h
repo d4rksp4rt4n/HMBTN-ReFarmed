@@ -265,6 +265,7 @@ typedef struct {
     int  crt_smooth;            /* they see the upscaled picture averaged to the console's size: smooth 3D edges */
     int  renderer_vk;           /* experiment: parallel-psx (Vulkan) draws the picture (renderer = vulkan) */
     int  texturepack;           /* replacement images from textures/ (needs upscale >= 2) */
+    int  artfix;                /* mend palettes the game ships broken (gpu.c art_fixes) */
     int  portraits;             /* redrawn dialogue portraits from textures/portraits/ (needs upscale >= 2) */
     int  dumptextures;          /* write 2D sprites' textures to textures/dump/ (needs upscale >= 2) */
     int  hdimages;              /* pack images with more pixels than the picture (portraits) shown at the window's resolution */

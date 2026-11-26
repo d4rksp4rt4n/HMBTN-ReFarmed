@@ -438,6 +438,23 @@ static void test_textures(void)
     env_default();
 }
 
+/* artfix: the bin's broken palette, uploaded at x 800 (and at a row not on a multiple of 16: kept) */
+static void test_artfix(void)
+{
+    static const uint16_t bin[16] = { 0x0000, 0x8000, 0x8022, 0x9443, 0x8445, 0x8466, 0xC822, 0x8488,
+                                      0x8489, 0x88AA, 0x88CB, 0x88CD, 0x8CED, 0x8D10, 0x9551, 0xA1B4 };
+    env_default();
+    g_artfix = 1;
+    upload(800, 176, 16, 1, bin);
+    upload(808, 177, 16, 1, bin);
+    CHECK(px(803, 176) == 0 && px(806, 176) == 0 && px(802, 176) == 0x8022 && px(807, 176) == 0x8488,
+          "artfix: entries 3 and 6 cleared, the rest kept");
+    CHECK(px(814, 177) == 0xC822, "artfix: a palette off the 16-halfword grid is left alone");
+    g_artfix = 0;
+    upload(800, 176, 16, 1, bin);
+    CHECK(px(806, 176) == 0xC822, "artfix off: palette as uploaded");
+}
+
 static void test_fill_copy(void)
 {
     int x, y, ok;
@@ -1640,6 +1657,7 @@ int main(int argc, char **argv)
     test_gouraud_and_dither();
     test_textures();
     test_fill_copy();
+    test_artfix();
     test_lines();
     test_blend_mask();
     test_transfers_and_status();

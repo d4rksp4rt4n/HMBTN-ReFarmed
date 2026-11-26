@@ -13,7 +13,7 @@
 #define mkdir_one(p) mkdir(p, 0755)
 #endif
 
-int g_texpack, g_texdump;
+int g_texpack, g_texdump, g_artfix;
 static TexImage *imgs;              /* sorted by key */
 static int nimgs;
 static char dump_dir[1024];

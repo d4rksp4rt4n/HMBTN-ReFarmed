@@ -236,6 +236,7 @@ static void set_option(const char *key, const char *val) {
     else if (!strcmp(key, "vsync")) g_cfg.vsync = atoi(val);
     else if (!strcmp(key, "crt")) g_cfg.crt = !strcmp(val, "crt") ? 2 : !strcmp(val, "scanlines") ? 1 : atoi(val) == 1 || atoi(val) == 2 ? atoi(val) : 0;
     else if (!strcmp(key, "texturepack")) g_cfg.texturepack = atoi(val);
+    else if (!strcmp(key, "artfix")) g_cfg.artfix = atoi(val);
     else if (!strcmp(key, "dumptextures")) g_cfg.dumptextures = atoi(val);
     else if (!strcmp(key, "portraits")) g_cfg.portraits = atoi(val);
     else if (!strcmp(key, "hdimages")) g_cfg.hdimages = atoi(val);
@@ -425,6 +426,7 @@ static void usage(void) {
            "  --widescreen W:H      wider 3D view, e.g. 16:9 (2D objects keep their shape with --upscale 2+)\n"
            "  --interp              in-between pictures: camera and 3D scenery at 60 fps (needs --pgxp)\n"
            "  --texturepack         draw 2D sprites with the images in textures/ (needs --upscale 2+)\n"
+           "  --no-artfix           leave the palettes the original game ships broken as they are\n"
            "  --portraits           redrawn dialogue portraits from textures/portraits/ (needs --upscale 2+)\n"
            "  --no-hdimages         pack images (portraits) at the picture's resolution, not the window's\n"
            "  --dumptextures        write the 2D sprites' textures to textures/dump/ (needs --upscale 2+)\n"
@@ -512,6 +514,7 @@ int main(int argc, char **argv) {
     g_cfg.vsync = 1;
     g_cfg.allow_fast_forward = 1;
     g_cfg.autoslot = 1;
+    g_cfg.artfix = 1;
     g_cfg.fastcard = 1;
     g_cfg.draw_threads = -1;
     g_cfg.precisecull = -1;
@@ -560,6 +563,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-vsync")) g_cfg.vsync = 0;
         else if (!strcmp(a, "--texturepack")) g_cfg.texturepack = 1;
         else if (!strcmp(a, "--no-texturepack")) g_cfg.texturepack = 0;
+        else if (!strcmp(a, "--artfix")) g_cfg.artfix = 1;
+        else if (!strcmp(a, "--no-artfix")) g_cfg.artfix = 0;
         else if (!strcmp(a, "--portraits")) g_cfg.portraits = 1;
         else if (!strcmp(a, "--no-portraits")) g_cfg.portraits = 0;
         else if (!strcmp(a, "--hdimages")) g_cfg.hdimages = 1;
@@ -762,6 +767,7 @@ int main(int argc, char **argv) {
         g_scene_3d = platform_3d_scene;
         LOGI("widescreen %d:%d", g_cfg.ws_w, g_cfg.ws_h);
     }
+    g_artfix = g_cfg.artfix;
     if ((g_cfg.texturepack || g_cfg.portraits || g_cfg.dumptextures) && gpu_upscale() < 2 && !(vk && g_cfg.upscale > 1))
         LOGW("texture packs need upscale 2 or more");
     else if (g_cfg.texturepack || g_cfg.portraits || g_cfg.dumptextures) {
