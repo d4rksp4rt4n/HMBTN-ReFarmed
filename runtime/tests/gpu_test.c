@@ -1576,6 +1576,10 @@ static void test_texpack(void)
     remove(path);
     snprintf(path, sizeof path, "texpack_test/%016llx.png", (unsigned long long)k2);
     remove(path);
+    snprintf(path, sizeof path, "texpack_test/sprites/%016llx.png", (unsigned long long)(k2 ^ 1));
+    remove(path);
+    snprintf(path, sizeof path, "texpack_test/dump/%016llx.png", (unsigned long long)(k2 ^ 2));
+    remove(path);
     gpu_set_upscale(4);
     g_sprite_tags = 1;
 
@@ -1587,7 +1591,12 @@ static void test_texpack(void)
     if (f)
         fclose(f);
     texpack_dump(k2, 16, 16, rep);                       /* the replacement for t2 */
-    CHECK(texpack_load("texpack_test") == 2 && g_texpack, "texpack: 2 images loaded");
+    texpack_dump_to("texpack_test/sprites");             /* a folder of the pack: read too */
+    texpack_dump(k2 ^ 1, 16, 16, rep);
+    texpack_dump_to("texpack_test/dump");                /* the dumps: not */
+    texpack_dump(k2 ^ 2, 16, 16, rep);
+    CHECK(texpack_load("texpack_test") == 3 && g_texpack, "texpack: 3 images loaded (one from sprites/)");
+    CHECK(texpack_find(k2 ^ 1) && !texpack_find(k2 ^ 2), "texpack: a folder's images read, the dump folder's not");
     g_texdump = 0;                                       /* (the test's later textures aren't dumped) */
     im = texpack_find(k1);
     for (i = 0, j = 0; im && i < 64; i++)                /* (bit 15 isn't kept: it comes from the texture) */

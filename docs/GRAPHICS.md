@@ -436,7 +436,9 @@ title screen's pictures.
    0. Files already there are not written again.
 2. Draw the images anew at any size, keeping the shape (4× the dump is exactly one image pixel per
    screen pixel at `upscale = 4`). Pixels with alpha below 128 are transparent. Save as 8-bit RGB or
-   RGBA PNG in `textures/`, under the dump's name. Leave out what you don't redraw.
+   RGBA PNG in `textures/`, under the dump's name. Leave out what you don't redraw. A pack can be
+   kept in folders of `textures/` (e.g. `textures/sprites/`): every folder is read but `dump/` and
+   `portraits/` (the downloaded portrait pack, switched on its own).
 3. Play with `texturepack = 1`. The images are read when the game starts; the log says how many.
 
 **One sprite, several textures.** A replacement covers one texture, and the game often draws what

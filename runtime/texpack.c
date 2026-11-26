@@ -125,7 +125,9 @@ done:
     return px;
 }
 
-/* Reads every <key>.png (key: 16 hex digits) in dir. Returns the number of images there are. */
+/* Reads every <key>.png (key: 16 hex digits) in dir and its folders (to keep a pack in parts, e.g.
+ * textures/sprites), but dump (the dumped textures) and portraits (a pack of its own). Returns the
+ * number of images there are. */
 int texpack_load(const char *dir)
 {
     DIR *d = opendir(dir);
@@ -135,7 +137,15 @@ int texpack_load(const char *dir)
     while ((e = readdir(d))) {
         const char *s = e->d_name;
         char path[1200];
+        struct stat st;
         TexImage im;
+        if (s[0] != '.' && strcmp(s, "dump") && strcmp(s, "portraits")) {
+            snprintf(path, sizeof path, "%s/%s", dir, s);
+            if (!stat(path, &st) && S_ISDIR(st.st_mode)) {
+                texpack_load(path);
+                continue;
+            }
+        }
         if (strlen(s) != 20 || strspn(s, "0123456789abcdefABCDEF") != 16 || (strcmp(s + 16, ".png") && strcmp(s + 16, ".PNG")))
             continue;
         snprintf(path, sizeof path, "%s/%s", dir, s);
