@@ -367,8 +367,8 @@ static void begin_map(const SpriteMap *m)
 }
 
 /* g_above_call: what is being built is drawn above a character, at its anchor raised by up to
- * 50 pixels (balloons, the "Here!" hand), a point that was never projected: it takes the nearest
- * anchor straight below. */
+ * 50 pixels (balloons, the "Here!" hand, a Harvest Sprite's crop), a point never projected: it
+ * takes the nearest anchor straight below. */
 #if !defined(GPU_REPLAY) && !defined(GPU_BAND) && !defined(GPU_VIEW2)
 int g_above_call;
 #endif

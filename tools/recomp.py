@@ -673,9 +673,12 @@ MODULE_SITE_HOOKS['GF_FARM'][0x800FA1B8] = 'birthday_marks(c);'
 # point never projected itself, takes the anchor below it (g_above_call): a character's balloon
 # ("!", "...", the heart; 80107E2C, called by the people's, animals' and player's routines with
 # y - 20 ... y - 50, building it with the jal at 80107EF0) and the hand pointing at the player
-# hidden behind a wall ("Here!", the player's routine 800CA24C, jal at 800CA340, y - 50).
+# hidden behind a wall ("Here!", the player's routine 800CA24C, jal at 800CA340, y - 50), and what
+# a Harvest Sprite holds up (a crop it harvested: the sprite's routine 800D001C draws record +200
+# while +182 is set, jal at 800D00FC, y - 16).
 MODULE_SITE_HOOKS['GF_FARM'].update({0x80107EF4: 'g_above_call = 1;', 0x80107EF8: 'g_above_call = 0;',
-                                     0x800CA344: 'g_above_call = 1;', 0x800CA348: 'g_above_call = 0;'})
+                                     0x800CA344: 'g_above_call = 1;', 0x800CA348: 'g_above_call = 0;',
+                                     0x800D0100: 'g_above_call = 1;', 0x800D0104: 'g_above_call = 0;'})
 ENTRY_HOOKS[0x8002261C] = 'birthday_text_asked(c);'
 MODULE_ENTRY_HOOKS['GF_FARM'][0x8010E6E8] = 'sprite_menu(c);'
 MODULE_ENTRY_HOOKS['GF_FARM'][0x8010CB6C] = 'sprite_night(c);'   # each sprite's night
