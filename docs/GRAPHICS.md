@@ -445,6 +445,15 @@ the shipping bin on the ground (36×36, page 704,0) is another picture than the 
 carries (32×32, page 960,0), and a wife in the house is drawn from a sheet of her own. Each needs
 its own image, or the sprite switches between the new and the original look as it moves.
 
+**A pack from sprite sheets.** `tools/texpack_from_sheets.py SHEETS DUMPS OUT [--scale N]` writes,
+for every dump whose shape is a frame of one of the sheets (mirrored or not, within 1% of its pixels,
+colours within 20 a channel on average), that frame as `OUT/<key>.png`. The game's people are
+16-colour versions of frames that exist in more colours elsewhere; with such sheets, every dumped
+frame of them is replaced without drawing anything (a recorded set: 336 of 1345 dumps, all of married
+Karen's frames in the house among them). Only dumped frames get one: the sheets on the disc are
+compressed, so the keys come from what was played with `dumptextures = 1`. The sheets are not in
+the repository.
+
 **Original art fixes** (`artfix = 1`, the default; `--no-artfix`). Some palettes on the disc are
 broken: the bin on the ground has a blue entry (`c822`) and a navy one in its weave's holes, which
 the carried bin has transparent. When an upload puts such a palette in VRAM (all 16 colours equal
