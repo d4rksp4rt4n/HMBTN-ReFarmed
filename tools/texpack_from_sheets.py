@@ -7,7 +7,7 @@ colours a sheet; the sheet of a wife in the house lost her white).
 usage: python tools/texpack_from_sheets.py SHEETS_DIR DUMP_DIR OUT_DIR [--scale N]
 
 A frame is an island of opaque pixels in a sheet (pixels up to 2 apart join). A dump matches a frame
-of its exact size (both cropped to their opaque pixels) when at most 1% of the pixels differ in
+of its exact size (both cropped to their opaque pixels) when at most 2.5% of the pixels differ in
 being opaque and the opaque ones are within 20 per channel on average (so a lookalike in other
 colours is not taken). --scale N writes the images N times larger (nearest). Needs Pillow and numpy.
 """
@@ -17,7 +17,7 @@ import sys
 import numpy as np
 from PIL import Image
 
-MASK_TOL, COL_TOL = 0.01, 20.0
+MASK_TOL, COL_TOL = 0.025, 20.0
 
 
 def frames_of(path):
