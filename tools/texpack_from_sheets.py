@@ -7,9 +7,10 @@ colours a sheet; the sheet of a wife in the house lost her white).
 usage: python tools/texpack_from_sheets.py SHEETS_DIR DUMP_DIR OUT_DIR [--scale N]
 
 A frame is an island of opaque pixels in a sheet (pixels up to 2 apart join). A dump matches a frame
-of its exact size (both cropped to their opaque pixels) when at most 2.5% of the pixels differ in
-being opaque and the opaque ones are within 20 per channel on average (so a lookalike in other
-colours is not taken). --scale N writes the images N times larger (nearest). Needs Pillow and numpy.
+of its size, or a row or column more or less (both cropped to their opaque pixels), when at most
+2.5% of the pixels differ in being opaque and the opaque ones are within 20 per channel on average
+(so a lookalike in other colours is not taken). --scale N writes the images N times larger
+(nearest). Needs Pillow and numpy.
 """
 import os
 import sys
@@ -78,15 +79,28 @@ def main():
         y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
         c, cop = d[y0:y1, x0:x1, :3].astype(int), op[y0:y1, x0:x1]
         best = None
-        for sheet, g in by_size.get(cop.shape, ()):
-            gop = g[:, :, 3] > 0
-            mis = np.count_nonzero(gop != cop) / cop.size
-            both = gop & cop
-            if mis > MASK_TOL or not both.any():
-                continue
-            col = np.abs(g[:, :, :3].astype(int) - c)[both].mean()
-            if col <= COL_TOL and (best is None or (mis, col) < best[0]):
-                best = ((mis, col), sheet, g)
+        h, w = cop.shape
+        for sh, sw in ((h + dh, w + dw) for dh in (-1, 0, 1) for dw in (-1, 0, 1)):
+            for sheet, f in by_size.get((sh, sw), ()):
+                # a frame a row or column larger or smaller (an edge pixel more or less in the sheet):
+                # each way of lining it up, cropped or padded to the dump's box
+                for oy in range(-1, 2) if sh != h else (0,):
+                    for ox in range(-1, 2) if sw != w else (0,):
+                        g = np.zeros((h, w, 4), f.dtype)
+                        gy0, gx0 = max(oy, 0), max(ox, 0)
+                        fy0, fx0 = max(-oy, 0), max(-ox, 0)
+                        ch, cw = min(h - gy0, sh - fy0), min(w - gx0, sw - fx0)
+                        if ch <= 0 or cw <= 0:
+                            continue
+                        g[gy0:gy0 + ch, gx0:gx0 + cw] = f[fy0:fy0 + ch, fx0:fx0 + cw]
+                        gop = g[:, :, 3] > 0
+                        mis = np.count_nonzero(gop != cop) / cop.size
+                        both = gop & cop
+                        if mis > MASK_TOL or not both.any():
+                            continue
+                        col = np.abs(g[:, :, :3].astype(int) - c)[both].mean()
+                        if col <= COL_TOL and (best is None or (mis, col) < best[0]):
+                            best = ((mis, col), sheet, g)
         if not best:
             continue
         img = np.zeros_like(d)
