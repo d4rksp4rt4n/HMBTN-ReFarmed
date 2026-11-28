@@ -8,12 +8,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <chrono>
 
 static bool open_, ready, pause_ = true, peek_key, peek_pad;     /* peek: Tab or L2 held, the overlay hidden */
 static bool opened;     /* just opened: its keyboard/controller cursor shown at once (else the first press only shows it) */
 static char status[96];
 static char toast[160];         /* a save state's result, top left for a few seconds (also with the overlay closed) */
-static Uint32 toast_until;
+static long long toast_until;   /* ms, steady clock (SDL_GetTicks isn't loaded on Linux: sdl_dyn.h) */
+static long long now_ms() { return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 
 /* the few words of the overlay, as the launcher's language (en, pt, es) */
 enum { T_FILTER, T_OFF, T_SCAN, T_CRT, T_NEEDS_VK, T_RESET, T_SAVE, T_SAVED, T_NOT_SAVED, T_BACK, T_TYPE, T_SMOOTH,
@@ -396,9 +398,9 @@ static bool toast_on()
     {
         seen = n;
         overlay_state_text(toast, sizeof toast);
-        toast_until = SDL_GetTicks() + 3000;
+        toast_until = now_ms() + 3000;
     }
-    return toast[0] && SDL_GetTicks() < toast_until;
+    return toast[0] && now_ms() < toast_until;
 }
 
 extern "C" int overlay_visible(void)
