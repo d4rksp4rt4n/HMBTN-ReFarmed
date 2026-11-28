@@ -293,6 +293,7 @@ typedef struct {
     int  cropwalk;              /* the player walks through planted crops (fixes.c) */
     int  spritechair;           /* the yellow Harvest Sprite stands off the chair at home (fixes.c) */
     int  shipreach;             /* a thrown item falling near a shipping bin goes in (fixes.c) */
+    int  shipfree;              /* shipreach looks around at no cost in game time (recordings before it: 0) */
     int  doorreach;             /* the doors that open with X are taken from wider (fixes.c) */
     int  friendpage;            /* the START menu has a page of the town's friendships (friends.c) */
     int  birthdays;             /* the calendar marks and names the birthdays (friends.c) */

@@ -529,6 +529,7 @@ int main(int argc, char **argv) {
     g_cfg.emptybag = 1;
     g_cfg.spritechair = 1;
     g_cfg.shipreach = 1;
+    g_cfg.shipfree = 1;
     g_cfg.depthtest = 1;
     for (int s = 0; s < 2; s++)
         for (int i = 0; i < CRT_PARAMS; i++) g_cfg.crt_param[s][i] = crt_params[s][i].def;

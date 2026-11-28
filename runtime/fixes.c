@@ -196,7 +196,11 @@ uint32_t crop_walk_solid(CPU *c, uint32_t solid, uint32_t query, uint32_t record
  * the item falls to about the bin's top, the floor is looked at around it too (up to SHIP_REACH
  * away; over the bin itself the game's own landing is left to do it); a bin there takes it, as
  * the game does (800CCAA8: 800F3BCC ships it, sound 19, 800CCBE8 ends the throw, 8001AF70(7, 1)). Items 101 and 390 fly their own way, and an item the table at
- * 8006C858 (40 bytes, +18) does not let go in a bin is left to the game. */
+ * 8006C858 (40 bytes, +18) does not let go in a bin is left to the game.
+ * The look around is up to 17 floor lookups a frame while the item falls, each a search of the
+ * ground's polygons (800CE550 tries up to five heights): charged to the game's CPU time it took
+ * a throw from 30 frames a second down to 12-20 at overclock 200 (6 at 100). With shipfree it
+ * costs no game time (the console never did it); recordings made before it took the time. */
 #define SHIP_REACH 240
 #define SHIP_ABOVE 40               /* the item down to about the bin's top */
 #define ITEM_TABLE 0x8006C858u
@@ -225,6 +229,8 @@ int ship_reach(CPU *c) {
     uint32_t gp = regs[28], poly = MEM_R32(gp + BIN_POLY);
     uint32_t p = regs[29] - 0x40u;
     int32_t x = (int32_t)MEM_R32(s + 36u), y = (int32_t)MEM_R32(s + 40u), z = (int32_t)MEM_R32(s + 44u);
+    uint32_t scale = g_cycle_scale;
+    if (g_cfg.shipfree) g_cycle_scale = 0;                 /* the look around: no game time */
     c->r[29] = regs[29] - 0x80u;
     int found = bin_near(c, p, x, y, z, 0x7FFFFFF) ? -1 : 0;   /* over it already: the game's own */
     for (int ring = 1; ring <= 2 && !found; ring++)
@@ -235,6 +241,7 @@ int ship_reach(CPU *c) {
             if (dir[k][0] && dir[k][1]) { dx = dx * 3 / 2; dz = dz * 3 / 2; }
             found = bin_near(c, p, x + dx, y, z + dz, SHIP_ABOVE);
         }
+    g_cycle_scale = scale;
     MEM_W32(gp + BIN_POLY, poly);
     memcpy(c->r, regs, sizeof regs);
     c->hi = hi;
