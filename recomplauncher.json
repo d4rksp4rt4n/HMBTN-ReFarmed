@@ -1,0 +1,153 @@
+{
+  "$schema": "https://recomplauncher.com/schema/recomplauncher.json",
+  "format": 1,
+  "name": "HMBTN ReFarmed",
+  "repo": "d4rksp4rt4n/HMBTN-ReFarmed",
+  "inputs": [
+    {
+      "id": "game",
+      "label": "Your disc image of the USA release (SLUS-01115): pick the .cue file, with its .bin beside it.",
+      "formats": [{ "type": "file", "extensions": ["cue", "bin"] }],
+      "check": { "iso9660": "SLUS_011.15" }
+    }
+  ],
+  "prepare": {
+    "program": ["HarvestMoonBTN-Launcher.exe", "HarvestMoonBTN-Launcher-Linux"],
+    "args": ["--prepare", "--disc={input:game}"],
+    "label": "Builds the game from your disc (downloads the compiler the first time)",
+    "done": ["{install}/build-files/prepared.txt"],
+    "keeps_copy": true
+  },
+  "start": {
+    "program": ["HarvestMoonBTN.exe", "HarvestMoonBTN"]
+  },
+  "folders": {
+    "game": [{ "path": "{install}/build-files" }],
+    "saves": [{ "path": "{install}/saves" }]
+  },
+  "saves": ["{install}/saves", "{install}/hmbtn.ini"],
+  "config": [
+    { "format": "ini", "file": [{ "path": "{install}/hmbtn.ini" }] }
+  ],
+  "settings": [
+    {
+      "id": "renderer", "label": "Renderer", "group": "Video",
+      "help": "The processor works on any PC; Vulkan lets the graphics card draw it (experimental).",
+      "choices": [
+        { "label": "Processor", "set": { "video/renderer": "cpu" } },
+        { "label": "Vulkan", "set": { "video/renderer": "vulkan" } }
+      ],
+      "defaults": { "video/renderer": "cpu" }
+    },
+    {
+      "id": "upscale", "label": "Resolution", "group": "Video",
+      "help": "What the 3D scenes are drawn at. Higher is smoother and needs more of the processor.",
+      "choices": [
+        { "label": "Original (240p)", "set": { "video/upscale": "1" } },
+        { "label": "2x (480p)", "set": { "video/upscale": "2" } },
+        { "label": "3x (720p)", "set": { "video/upscale": "3" } },
+        { "label": "4x (960p)", "set": { "video/upscale": "4" } }
+      ],
+      "defaults": { "video/upscale": "2" }
+    },
+    {
+      "id": "widescreen", "label": "Widescreen", "group": "Video",
+      "help": "More of the farm and town on screen. Videos stay 4:3.",
+      "choices": [
+        { "label": "Off", "set": { "video/widescreen": "off" } },
+        { "label": "16:9", "set": { "video/widescreen": "16:9" } },
+        { "label": "16:10", "set": { "video/widescreen": "16:10" } },
+        { "label": "21:9", "set": { "video/widescreen": "21:9" } }
+      ],
+      "defaults": { "video/widescreen": "16:9" }
+    },
+    {
+      "id": "pgxp", "label": "Precise 3D", "group": "Video",
+      "help": "No wobbling polygons. Needs a resolution of 2x or more.",
+      "choices": [
+        { "label": "On", "set": { "video/pgxp": "1" } },
+        { "label": "Off", "set": { "video/pgxp": "0" } }
+      ],
+      "defaults": { "video/pgxp": "1" }
+    },
+    {
+      "id": "interp", "label": "60 fps camera", "group": "Video",
+      "help": "The camera and scenery move 60 times a second; the game itself still runs at 30.",
+      "choices": [
+        { "label": "On", "set": { "video/interp": "1" } },
+        { "label": "Off", "set": { "video/interp": "0" } }
+      ],
+      "defaults": { "video/interp": "1" },
+      "when": { "video/pgxp": "1" }
+    },
+    {
+      "id": "crt", "label": "CRT filter", "group": "Video",
+      "help": "The lines of a TV picture, or a curved tube with a shadow mask and glow.",
+      "choices": [
+        { "label": "Off", "set": { "video/crt": "off" } },
+        { "label": "Scanlines", "set": { "video/crt": "scanlines" } },
+        { "label": "CRT", "set": { "video/crt": "crt" } }
+      ],
+      "defaults": { "video/crt": "off" }
+    },
+    {
+      "id": "vsync", "label": "Vsync", "group": "Video",
+      "help": "No tearing, and even motion on a 60 or 120 Hz screen.",
+      "choices": [
+        { "label": "On", "set": { "video/vsync": "1" } },
+        { "label": "Off", "set": { "video/vsync": "0" } }
+      ],
+      "defaults": { "video/vsync": "1" }
+    },
+    {
+      "id": "fullscreen", "label": "Start in fullscreen", "group": "Video",
+      "help": "F11 or Alt+Enter switches at any time.",
+      "choices": [
+        { "label": "Off", "set": { "video/fullscreen": "0" } },
+        { "label": "On", "set": { "video/fullscreen": "1" } }
+      ],
+      "defaults": { "video/fullscreen": "0" }
+    },
+    {
+      "id": "quickui", "label": "Quick menus", "group": "Time savers",
+      "help": "Menus and messages open at once, and fades to black are 4x shorter.",
+      "choices": [
+        { "label": "On", "set": { "behaviour/quickui": "1" } },
+        { "label": "Off", "set": { "behaviour/quickui": "0" } }
+      ],
+      "defaults": { "behaviour/quickui": "1" }
+    },
+    {
+      "id": "fastload", "label": "Fast loading screens", "group": "Time savers",
+      "help": "The game runs at full speed during \"Now Loading\" and between places.",
+      "choices": [
+        { "label": "Off", "set": { "behaviour/fastload": "0" } },
+        { "label": "On", "set": { "behaviour/fastload": "1" } }
+      ],
+      "defaults": { "behaviour/fastload": "0" }
+    },
+    {
+      "id": "textspeed", "label": "Text speed", "group": "Time savers",
+      "help": "How many letters the dialogue types at a time.",
+      "choices": [
+        { "label": "Original", "set": { "behaviour/textspeed": "1" } },
+        { "label": "3x", "set": { "behaviour/textspeed": "3" } },
+        { "label": "8x", "set": { "behaviour/textspeed": "8" } },
+        { "label": "16x", "set": { "behaviour/textspeed": "16" } }
+      ],
+      "defaults": { "behaviour/textspeed": "3" }
+    },
+    {
+      "id": "skipscenes", "label": "Hold Start in cutscenes", "group": "Time savers",
+      "help": "Runs a cutscene at full speed; it still stops at each dialogue.",
+      "choices": [
+        { "label": "On", "set": { "behaviour/skipscenes": "1" } },
+        { "label": "Off", "set": { "behaviour/skipscenes": "0" } }
+      ],
+      "defaults": { "behaviour/skipscenes": "1" }
+    }
+  ],
+  "actions": [
+    { "id": "saves", "label": "Memory cards", "help": "The saves folder (card1.mcd ...).", "open": "saves" }
+  ]
+}
