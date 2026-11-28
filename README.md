@@ -2,6 +2,8 @@
 
 [![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/DANpsThsZn)
 
+<a href="https://recomplauncher.com/game/hmbtn-refarmed"><picture><source media="(prefers-color-scheme: dark)" srcset="https://recomplauncher.com/assets/press/launcher/badge-light.svg"><img alt="Get it on RecompLauncher" src="https://recomplauncher.com/assets/press/launcher/badge-dark.svg" height="48"></picture></a>
+
 ![The farmhouse in widescreen at 4x resolution](https://github.com/d4rksp4rt4n/HMBTN-ReFarmed/releases/download/readme-media/farmhouse-16x9.png)
 
 An unofficial, native **Windows and Linux** version of *Harvest Moon: Back to Nature*

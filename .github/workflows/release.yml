@@ -154,11 +154,31 @@ jobs:
           fi
           chmod +x launchers/HarvestMoonBTN-Launcher-Linux
 
+      # for RecompLauncher (recomplauncher.json): each launcher also in an archive with that file beside it,
+      # named by system. The bare launchers stay: players' launchers update themselves from them
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          path: repo
+          sparse-checkout: recomplauncher.json
+          sparse-checkout-cone-mode: false
+
+      - name: The archives
+        env:
+          VERSION: ${{ needs.windows.outputs.version }}
+        run: |
+          mkdir -p pack/win pack/linux
+          cp launchers/HarvestMoonBTN-Launcher.exe repo/recomplauncher.json pack/win/
+          cp -p launchers/HarvestMoonBTN-Launcher-Linux repo/recomplauncher.json pack/linux/
+          (cd pack/win && zip -9 "../../launchers/HarvestMoonBTN-v$VERSION-Windows-x64.zip" *)
+          tar -C pack/linux -czf "launchers/HarvestMoonBTN-v$VERSION-Linux-x64.tar.gz" .
+
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
           subject-path: |
             launchers/HarvestMoonBTN-Launcher.exe
             launchers/HarvestMoonBTN-Launcher-Linux
+            launchers/HarvestMoonBTN-v*-Windows-x64.zip
+            launchers/HarvestMoonBTN-v*-Linux-x64.tar.gz
 
       - name: Publish
         env:
@@ -173,5 +193,6 @@ jobs:
           notes+=$'\nA launcher already in use updates itself.'
           notes+=$'\n\nBuilt by this workflow from '"$GITHUB_SHA"$'. Check a file: gh attestation verify FILE --repo '"$GITHUB_REPOSITORY"
           gh release create "v$VERSION" launchers/HarvestMoonBTN-Launcher.exe launchers/HarvestMoonBTN-Launcher-Linux \
+            "launchers/HarvestMoonBTN-v$VERSION-Windows-x64.zip" "launchers/HarvestMoonBTN-v$VERSION-Linux-x64.tar.gz" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Launcher v$VERSION" --notes "$notes" $([ "$DRAFT" = true ] && echo --draft)
