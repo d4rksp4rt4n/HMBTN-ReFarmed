@@ -114,6 +114,8 @@ extern int g_hud_call;            /* the HUD icon routine is calling the sprite 
  * GPU writes each texture it could replace to <folder>/<key>.png (texpack_dump). */
 typedef struct { uint64_t key; int w, h; uint16_t *px; uint16_t *thin; } TexImage;   /* px: as texels, 0 = transparent */
 extern int g_texpack, g_texdump;
+/* 1: the palettes the game ships broken are mended as they are uploaded (gpu.c art_fixes) */
+extern int g_artfix;
 /* HD images (g_hd_images): a replaced rectangle whose image has more pixels than the upscaled copy
  * shows (the redrawn portraits below upscale 4) is drawn there with texpack_thin's image (its
  * opaque part shrunk by rad pixels, so none of it shows around the HD copy), and the GPU keeps

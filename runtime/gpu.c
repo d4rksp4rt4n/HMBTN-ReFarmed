@@ -3152,6 +3152,38 @@ static void cmd_copy(const uint32_t *p)
     }
 }
 
+/* Original art fixes (g_artfix): 16-colour palettes the game's data has broken, found by all their
+ * colours where an upload put them (x a multiple of 16), and the entries in clear made transparent */
+static const struct {
+    uint16_t pal[16], clear;
+} art_fixes[] = {
+    /* the shipping bin on the ground: blue (6, c822) and navy (3) in its weave's holes, which the
+     * carried bin's picture has transparent */
+    { { 0x0000, 0x8000, 0x8022, 0x9443, 0x8445, 0x8466, 0xC822, 0x8488, 0x8489, 0x88AA, 0x88CB, 0x88CD, 0x8CED,
+        0x8D10, 0x9551, 0xA1B4 },
+      1u << 3 | 1u << 6 },
+};
+
+static void art_fix(int32_t x0, int32_t y0, int32_t w, int32_t h)
+{
+    int32_t x, y, i;
+    size_t k;
+    for (y = y0; y < y0 + h; y++)
+        for (x = (x0 + 15) & ~15; x + 16 <= x0 + w && x + 16 <= 1024; x += 16) {
+            uint16_t *p = &S.vram[(uint32_t)(y & 511) << 10 | (uint32_t)x];
+            for (k = 0; k < sizeof art_fixes / sizeof *art_fixes; k++) {
+                if (memcmp(p, art_fixes[k].pal, sizeof art_fixes[k].pal))
+                    continue;
+                for (i = 0; i < 16; i++)
+                    if (art_fixes[k].clear >> i & 1) {
+                        p[i] = 0;
+                        if (TH.buf)
+                            up_block((uint32_t)(x + i), (uint32_t)(y & 511), 0);
+                    }
+            }
+        }
+}
+
 static void vram_write_word(uint32_t w)
 {
     int i;
@@ -3168,6 +3200,8 @@ static void vram_write_word(uint32_t w)
             S.wr_cy++;
             if (S.wr_cy == S.wr_y + S.wr_h) {
                 S.gp0_state = GP0_STATE_COMMAND;
+                if (g_artfix)
+                    art_fix(S.wr_x, S.wr_y, S.wr_w, S.wr_h);
 #if VK_MAIN
                 if (g_vk)
                     VK(vkr_upload(S.wr_x, S.wr_y, S.wr_w, S.wr_h, S.vram));
