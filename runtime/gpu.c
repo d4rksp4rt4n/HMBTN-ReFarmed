@@ -366,12 +366,24 @@ static void begin_map(const SpriteMap *m)
     }
 }
 
+/* g_above_call: what is being built is drawn above a character, at its anchor raised by up to
+ * 50 pixels (balloons, the "Here!" hand, a Harvest Sprite's crop), a point never projected: it
+ * takes the nearest anchor straight below. */
+#if !defined(GPU_REPLAY) && !defined(GPU_BAND) && !defined(GPU_VIEW2)
+int g_above_call;
+#endif
 void gpu_sprite_begin(int x, int y)
 {
     ROUTE_BUILD(gpu_sprite_begin(x, y));
-    uint32_t i = anchor_slot(x, y);
-    g_sprite_on = anchors[i].gen + 1 >= anchor_gen && anchors[i].x == x && anchors[i].y == y;
-    begin_map(&anchors[i].m);
+    for (int d = 0; d <= (g_above_call ? 64 : 0); d++) {
+        uint32_t i = anchor_slot(x, y + d);
+        if (anchors[i].gen + 1 >= anchor_gen && anchors[i].x == x && anchors[i].y == y + d) {
+            g_sprite_on = 1;
+            begin_map(&anchors[i].m);
+            return;
+        }
+    }
+    g_sprite_on = 0;
 }
 
 /* What the player holds above its head is drawn at the player's position plus an offset: it is

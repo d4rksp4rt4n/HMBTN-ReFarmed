@@ -89,6 +89,7 @@ void     gpu_sprite_alias(int ax, int ay, int bx, int by);   /* point b uses anc
 void     gpu_held_begin(int on);  /* tag what the player holds with the player's anchor (on = 0: drop; 2: the second farmer's) */
 extern int g_held_call;           /* the player's held object is being drawn */
 extern int g_item_call;           /* an item on (or thrown to) the ground is being drawn */
+extern int g_above_call;          /* a balloon or the "Here!" hand: drawn above a character's anchor */
 /* Widescreen: g_menu_tile is set while a full-screen menu's background is tiled (or the title
  * screen's drawn) to the pattern's period across in pixels; its tiles are tagged
  * (gpu_menu_begin) and repeated to fill the wide picture, and gpu_display_menu says the picture
