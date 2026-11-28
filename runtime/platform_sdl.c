@@ -188,6 +188,7 @@ static void parse_script(const char *s) {
             g_cfg.precisecull = 0;              /* recordings made before it have no precisecull= */
             g_cfg.spritechair = 0;              /* nor spritechair= */
             g_cfg.shipreach = 0;                /* nor shipreach= */
+            g_cfg.shipfree = 0;                 /* nor shipfree= (shipreach took game time) */
             g_cfg.friendpage = 0;               /* written only when on */
             g_cfg.birthdays = 0;                /* nor birthdays= */
             g_cfg.bellherd = 0;                 /* nor bellherd= */
@@ -213,6 +214,7 @@ static void parse_script(const char *s) {
         if (!strncmp(tok, "cropwalk=", 9)) { g_cfg.cropwalk = atoi(tok + 9); continue; }
         if (!strncmp(tok, "spritechair=", 12)) { g_cfg.spritechair = atoi(tok + 12); continue; }
         if (!strncmp(tok, "shipreach=", 10)) { g_cfg.shipreach = atoi(tok + 10); continue; }
+        if (!strncmp(tok, "shipfree=", 9)) { g_cfg.shipfree = atoi(tok + 9); continue; }
         if (!strncmp(tok, "friendpage=", 11)) { g_cfg.friendpage = atoi(tok + 11); continue; }
         if (!strncmp(tok, "birthdays=", 10)) { g_cfg.birthdays = atoi(tok + 10); continue; }
         if (!strncmp(tok, "staminabar=", 11)) { g_cfg.staminabar = atoi(tok + 11); continue; }
@@ -590,6 +592,7 @@ int platform_init(void) {
             fprintf(rec_file, "cropwalk=%d\n", g_cfg.cropwalk);
             fprintf(rec_file, "spritechair=%d\n", g_cfg.spritechair);
             fprintf(rec_file, "shipreach=%d\n", g_cfg.shipreach);
+            fprintf(rec_file, "shipfree=%d\n", g_cfg.shipfree);     /* how long a throw's frames take */
             fprintf(rec_file, "precisecull=%d\n", g_cfg.precisecull);   /* changes what the game draws */
             fprintf(rec_file, "dualshock=%d\n", g_cfg.dualshock);       /* the pad's answers change the game's code */
             if (g_cfg.staminabar) fprintf(rec_file, "staminabar=%d\n", g_cfg.staminabar);
