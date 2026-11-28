@@ -1030,6 +1030,10 @@ def selftest():
     assert add_key('X, Space', 'K', False) == 'X,Space,K' and add_key('X,Space', 'x', False) == 'X,Space'
     assert add_key('X,Space', 'Up', True) == 'Up'
     assert vtuple('v1.10.0') > vtuple('1.9.3') > vtuple('1.9') and vtuple('v2') == (2,)
+    assert prepare_progress('zig            downloading https://x/zig.tar.xz', 0) == 'progress 0.02 Downloading the compiler'
+    assert prepare_progress('recompiling the game code (MIPS -> C) ...', 1) == 'progress 0.2 Recompiling the game code'
+    assert prepare_progress('built /x/HarvestMoonBTN', 1) == 'progress 0.8 Game compiled'
+    assert prepare_progress('warning: unused variable', 1) is None
     import tempfile
     cur = os.path.join(tempfile.gettempdir(), 'hmbtn_selftest.cur')
     write_cursor(cur, [[(255, 255, 255), None]] * 29, (1, 0))
@@ -1164,6 +1168,108 @@ def self_update(url, sha):
         os.remove(me + '.old')
     os.replace(me, me + '.old')
     os.replace(me + '.new', me)
+
+
+def copy_sources():
+    """the scripts this exe carries, beside the build's own files (WORK)"""
+    import shutil
+    if SRC != WORK:
+        os.makedirs(WORK, exist_ok=True)
+        for n in ('build.py', 'tools', 'runtime', 'dist-template'):
+            s, d = os.path.join(SRC, n), os.path.join(WORK, n)
+            shutil.copytree(s, d, dirs_exist_ok=True) if os.path.isdir(s) else shutil.copy2(s, d)
+
+
+def build_commands(disc, make_pak, lang):
+    """the Build page's commands (run in WORK) and their environment: the compiler, downloaded (Linux: Zig,
+    unless a launcher.pyw on a PC with its own compiler), then build.py into this folder"""
+    import shutil
+    own_cc = os.name != 'nt' and not getattr(sys, 'frozen', False) and shutil.which('cc')
+    cmds = [] if own_cc else [[sys.executable, os.path.join(WORK, 'tools', 'fetch_deps.py'), '--min']]
+    cmds.append([sys.executable, os.path.join(WORK, 'build.py'), '--into', HERE] +
+                (['--disc', disc] if disc else []) + (['--pak'] if make_pak else []) +
+                (['--lang', lang] if lang != 'en' else []))
+    return cmds, dict(os.environ, PYINSTALLER_RESET_ENVIRONMENT='1', PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8')
+
+
+# RecompLauncher (recomplauncher.json): "--prepare --disc=<image>" is the Build page without a window. It
+# prints the build's lines, and "progress <0..1> <text>" lines for the launcher's setup screen
+PREPARED = os.path.join(WORK, 'prepared.txt')   # what the last finished --prepare built (recomplauncher.json: done)
+PREPARE_STEPS = [('toolchain ready', 0.1, 'Compiler ready'), ('disc image:', 0.12, 'Reading your disc'),
+                 ('recompiling the game code', 0.2, 'Recompiling the game code'),
+                 ('built ', 0.8, 'Game compiled'), ('building the data pack', 0.85, 'Making the data pack'),
+                 ('packaged', 0.95, 'Putting the game together')]
+
+
+def prepare_progress(line, cmd):
+    """the progress line for a line the build printed, or None"""
+    if cmd == 0 and ' downloading ' in line:
+        return 'progress 0.02 Downloading the compiler'
+    for start, at, text in PREPARE_STEPS:
+        if line.startswith(start):
+            return 'progress %g %s' % (at, text)
+    return None
+
+
+def prepare():
+    """build the game from the disc given as --disc=<.cue or .bin> (without it: again from the files the last
+    build took from the disc), with the language chosen in hmbtn.ini. 0 when the game is ready"""
+    if sys.stdout:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace', line_buffering=True)
+    disc = next((a[7:] for a in sys.argv if a.startswith('--disc=')), None)
+    if not SRC:
+        print('This launcher has no build scripts in it. Download it again from the releases page.')
+        return 1
+    loaded, active = read_ini(open(INI, encoding='utf-8').read() if os.path.exists(INI) else '')
+    lang = loaded.get('game_lang') if 'game_lang' in active and loaded.get('game_lang') in GAME_LANGS else 'en'
+    pak = os.path.join(HERE, 'HarvestMoonBTN.pak')
+    if disc and not os.path.isfile(disc):
+        print('Your disc image is not there any more: %s. Pick it again.' % disc)
+        return 1
+    if not disc and not (os.path.exists(pak) and all(os.path.exists(os.path.join(WORK, 'extract', n))
+                                                      for n in GAME_FILES)):
+        print('Pick your disc image (the .cue file of the USA release, SLUS-01115).')
+        return 1
+    # the same release, language and disc as the last finished run: nothing to do
+    want = 'version = %s\nlang = %s\n' % (VERSION, lang)
+    seen = 'disc = %s %d\n' % (os.path.abspath(disc), os.path.getsize(disc)) if disc else ''
+    try:
+        last = open(PREPARED, encoding='utf-8').read()
+    except OSError:
+        last = None
+    if last and last.startswith(want) and (not disc or last == want + seen) and os.path.exists(EXE) \
+            and os.path.exists(pak):
+        print('progress 1 Already built')
+        return 0
+    if last is not None:
+        os.remove(PREPARED)                 # a run cut short never looks finished
+    copy_sources()
+    # with the disc: the data pack too, so the game plays without it; without it, the pack made before stays
+    cmds, env = build_commands(disc, bool(disc), lang)
+    print('progress 0 Getting ready', flush=True)
+    for i, cmd in enumerate(cmds):
+        try:
+            p = subprocess.Popen(cmd, cwd=WORK, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT, encoding='utf-8', errors='replace',
+                                 creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        except OSError as e:
+            print('The build could not start: %s' % e)
+            return 1
+        for line in p.stdout:
+            print(line, end='')
+            step = prepare_progress(line, i)
+            if step:
+                print(step, flush=True)
+        if p.wait():
+            print('The build stopped (code %d). Copy the log and report it at '
+                  'https://github.com/d4rksp4rt4n/HMBTN-ReFarmed/issues' % p.returncode)
+            return 1
+    if not seen:                            # built again without the disc: still from the one picked before
+        seen = ''.join(l + '\n' for l in (last or '').splitlines() if l.startswith('disc = '))
+    with open(PREPARED, 'w', encoding='utf-8') as f:
+        f.write(want + seen)
+    print('progress 1 Ready to play')
+    return 0
 
 
 def portraits_info():
@@ -1987,7 +2093,7 @@ def main():
                        fg=WARN if job['ok'] is False else OK)
 
     def start_build():
-        import queue, shutil, threading
+        import queue, threading
         if job['proc']:
             return
         disc = game_data(val('disc'))
@@ -2000,18 +2106,8 @@ def main():
                 messagebox.showwarning('Harvest Moon', T('need_cue'))
                 return
         save()
-        if SRC != WORK:                     # the scripts this exe carries, beside the build's own files
-            os.makedirs(WORK, exist_ok=True)
-            for n in ('build.py', 'tools', 'runtime', 'dist-template'):
-                s, d = os.path.join(SRC, n), os.path.join(WORK, n)
-                shutil.copytree(s, d, dirs_exist_ok=True) if os.path.isdir(s) else shutil.copy2(s, d)
-        # the compiler: downloaded (Linux: Zig, unless a launcher.pyw on a PC with its own compiler)
-        own_cc = os.name != 'nt' and not getattr(sys, 'frozen', False) and shutil.which('cc')
-        cmds = [] if own_cc else [[sys.executable, os.path.join(WORK, 'tools', 'fetch_deps.py'), '--min']]
-        cmds.append([sys.executable, os.path.join(WORK, 'build.py'), '--into', HERE] +
-                    (['--disc', disc] if disc else []) + (['--pak'] if make_pak else []) +
-                    (['--lang', want_lang()] if want_lang() != 'en' else []))
-        env = dict(os.environ, PYINSTALLER_RESET_ENVIRONMENT='1', PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8')
+        copy_sources()
+        cmds, env = build_commands(disc, make_pak, want_lang())
         lines = queue.Queue()
         job.update(log=[], ok=None, proc=True)
 
@@ -2393,8 +2489,8 @@ def main():
     build()
     if rebuild:
         start_build()
-    elif getattr(sys, 'frozen', False) and not live:   # only an exe can replace itself
-        check_updates()
+    elif getattr(sys, 'frozen', False) and not live and os.environ.get('RECOMPLAUNCHER') != '1':
+        check_updates()     # only an exe can replace itself; RecompLauncher brings its updates itself
     check_portraits()
     root.mainloop()
 
@@ -2402,5 +2498,7 @@ def main():
 if __name__ == '__main__':
     if '--version' in sys.argv:
         print(VERSION)
+    elif '--prepare' in sys.argv:
+        sys.exit(prepare())
     else:
         selftest() if '--selftest' in sys.argv else main()
